@@ -70,10 +70,10 @@ run `tests/rules.js`. When you add a worker, add a test for it.
 | `workers/` | Homei, Handi, Handi on mail, register loader, corpus index and search, backup, Bates. `cxi_spine.py` is their thin layer |
 | `tests/` | `run.sh` and one script per suite |
 | `docs/LOVABLE.md` | Pointing a Lovable front end at this spine |
-| `scripts/dev.sh` | Fetches PocketBase and serves everything |
+| `scripts/start.sh`, `stop.sh`, `dev.sh` | Background start/stop by pid file; foreground spine |
 
 Gitignored and never committed: `pb_data/` (the database), `bin/`,
-`register/`, `workers/log/`, `workers/.vectors/`, `workers/.*-password`, `tests/.tmp/`.
+`register/`, `workers/log/`, `workers/.vectors/`, `workers/.*-password`, `.run/`, `tests/.tmp/`.
 
 ## Things that bit us once
 
@@ -89,6 +89,8 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
   message sent in between is lost. The page does this; keep it that way.
 - `pkill -f` with a pattern that appears in your own shell command kills
   the shell. Stop processes by id.
+- `( cd dir && cmd & echo $! > file )` backgrounds the whole list, cd
+  included; the pid file lands in the wrong folder. Use `;` after the cd.
 - Never advance a worker's poll cursor to its own reply's timestamp:
   everything written while the model was thinking sits between the trigger
   and the reply and would be skipped forever. Advance only past what was read.

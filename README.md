@@ -10,10 +10,13 @@ this is one of the surfaces on it.
 ## Run it
 
 ```sh
-./scripts/dev.sh
+./scripts/start.sh      # the spine, Homei and Handi, in the background
+./scripts/stop.sh       # all of it, by process id
 ```
 
-Then open <http://127.0.0.1:8090>. The first run downloads PocketBase into
+Then open <http://127.0.0.1:8090>. Logs are in `workers/log/`.
+`./scripts/dev.sh` runs the spine alone, in the foreground, if you want
+to watch it. The first run downloads PocketBase into
 `bin/` (about 12 MB) and creates the database in `pb_data/`.
 
 Create an account on the sign-in screen, make a room, talk. Open the same
@@ -51,7 +54,8 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `tests/` | One command that proves all of the above. |
 | `HANDOVER.md`, `CLAUDE.md` | The state of things for a person, and the rules for a Claude Code session. |
-| `scripts/dev.sh` | Downloads PocketBase and serves everything. |
+| `scripts/start.sh`, `scripts/stop.sh` | Everything up in the background, everything down by process id. |
+| `scripts/dev.sh` | Downloads PocketBase and serves the spine alone, in the foreground. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
 | `bin/` | The PocketBase binary. Gitignored. |
 

@@ -1,7 +1,7 @@
 # HANDOVER — the state of things, in plain words
 
 The ending first: **everything in this repo works and has been tested, on
-built data, not on yours yet.** Three terminals on the Mac bring it all
+built data, not on yours yet.** One command on the Mac brings it all
 up. Nothing here needs Claude Code to run.
 
 ## What exists
@@ -23,10 +23,14 @@ up. Nothing here needs Claude Code to run.
 ## Bring it up
 
 ```sh
-./scripts/dev.sh                 # terminal 1: the spine, http://127.0.0.1:8090
-python3 workers/homei.py         # terminal 2: Homei (needs Ollama running with qwen3:4b)
-python3 workers/handi.py         # terminal 3: Handi (add CXI_SUPERUSER_EMAIL/PASSWORD to switch on '@handi find')
+./scripts/start.sh               # spine + Homei + Handi, in the background; logs in workers/log/
+./scripts/stop.sh                # all of it
 ```
+
+Set `CXI_SUPERUSER_EMAIL` and `CXI_SUPERUSER_PASSWORD` in that shell first
+if you want `@handi find`. Homei needs Ollama running with `qwen3:4b`.
+One terminal, two commands. The three-terminal way still works:
+`./scripts/dev.sh`, `python3 workers/homei.py`, `python3 workers/handi.py`.
 
 First time: open http://127.0.0.1:8090/_/ and create the superuser. That
 is you. Then open http://127.0.0.1:8090, create an account, make a room.

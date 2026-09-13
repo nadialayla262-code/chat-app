@@ -2,7 +2,7 @@
 # Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
 #
 #   ./tests/run.sh            # all
-#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates signup
+#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates signup startstop
 #
 # Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
 # Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
@@ -55,8 +55,14 @@ case "$want" in
   bates)    run bates "$PY" tests/bates.py ;;
   browser)  run browser node tests/browser.js ;;
   signup)   : ;;
+  startstop) : ;;
   *) echo "unknown suite: $want"; status=2 ;;
 esac
+if [ "$want" = all ] || [ "$want" = startstop ]; then
+  echo; echo "== start / stop =="
+  bash tests/startstop.sh || status=1
+fi
+
 # The sign-up code needs a spine started with the variable set: a second, short-lived one.
 if [ "$want" = all ] || [ "$want" = signup ]; then
   echo; echo "== signup code =="

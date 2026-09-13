@@ -16,3 +16,4 @@ workers/.handi-password
 register/
 tests/.tmp/
 workers/.vectors/
+.run/
