@@ -33,7 +33,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
-| `pb_hooks/` | Server-side routes, as code. Today: inviting people to private rooms. |
+| `pb_hooks/` | Server-side routes, as code: private-room invitations, and the public register views. |
 | `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
@@ -44,6 +44,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/handi_mail.py` | Handi on your mail: the register of who was written to and who answered. |
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
+| `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `scripts/dev.sh` | Downloads PocketBase and serves everything. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
@@ -154,6 +155,34 @@ printed at the foot of the register so the numbers can be defended.
 Six accounts means six runs with six `CXI_MY_EMAILS` values, or one Takeout
 per account into one folder.
 
+### The register in the spine
+
+Load it, so Rate the State reads the non-response clock from your own
+database instead of a CSV:
+
+```sh
+CXI_SUPERUSER_EMAIL=you@example.com CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/register_load.py --source personal-gmail
+```
+
+`--source` names the mailbox, so six accounts load side by side. Re-run
+after a fresh Takeout and it updates in place, nothing duplicated.
+
+The three collections it fills (`contacts`, `threads`, `dead_addresses`)
+have no API rules at all: only you, as superuser, and the server's own
+routes can read them. A signed-in chat user gets a 403. What the public
+sees comes from two read-only routes that return counts and dates only,
+never an address, never a subject:
+
+| Route | Returns |
+| --- | --- |
+| `GET /api/cxi/register/summary` | organisations written to, messages sent, how many ever answered by a person, how many never did, dead addresses |
+| `GET /api/cxi/register/board` | one row per organisation you have flagged `published`, with times written, first and last, replies, open threads |
+
+Publication discipline is a field. Nothing appears on the board until you
+tick `published` on that organisation in the admin panel, and you can give
+it a `display_name` there too. Unverified stays off the site.
+
 ## The method
 
 This is the part that matters more than the code.
@@ -201,7 +230,7 @@ messages               id, room -> rooms, author -> users, body, created
 - **Patchi / Gar Shield** becomes the sign-in. Today it is PocketBase's own
   email and password auth; the collection rules do not change when the
   identity layer does.
-- **The mail register into the spine**, so Rate the State reads it live.
+- **Rate the State's front end** reading `/api/cxi/register/board` from the spine.
 - **A Lovable front end** on this spine. The recipe is in `docs/LOVABLE.md`.
 - **Homei on DeepSeek**, self-hosted, once that is the driver model.
 
