@@ -41,6 +41,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/cxi_spine.py` | The thin layer for workers. The only worker file that knows PocketBase or Ollama. |
 | `workers/homei.py` | Homei, the AI seat in the room. Standard-library Python. |
 | `workers/handi.py` | Handi, holds the thread: who is waiting on whom, what is open. |
+| `workers/handi_mail.py` | Handi on your mail: the register of who was written to and who answered. |
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
@@ -123,6 +124,36 @@ python3 workers/handi.py
 Same settings pattern as Homei, prefixed `CXI_HANDI_`. Set
 `CXI_HANDI_MODEL=0` to keep it purely deterministic.
 
+### Handi on your mail
+
+The same register, over your mailbox. Every organisation you wrote to,
+how many times, whether a person ever answered, which addresses bounced.
+Non-response is the data point.
+
+```sh
+# from a Google Takeout export (Mail -> .mbox), nothing leaves the Mac
+python3 workers/handi_mail.py --mbox ~/Downloads/Takeout/Mail/"All mail Including Spam and Trash.mbox"
+
+# or straight from the mailbox over IMAP, with an app password
+CXI_IMAP_USER=you@gmail.com CXI_IMAP_PASSWORD=xxxx-xxxx-xxxx-xxxx python3 workers/handi_mail.py --imap
+```
+
+It writes `register/` (gitignored, it is your data):
+
+| File | What it is |
+| --- | --- |
+| `REGISTER.md` | The ending first: how many written to, how many ever answered by a person, then the list of those who never did. |
+| `contacts.csv` | One row per organisation. `ever_answered_by_a_person` is the column that matters. |
+| `threads.csv` | One row per conversation, with `OPEN` where nobody human has written since your last message. |
+| `bounced.txt` | Addresses that bounced. Stop using them. |
+
+A reply is human unless it is marked automatic, comes from a no-reply
+address, or its subject reads as an acknowledgement, in English or Dutch.
+Standard library only, deterministic, and every rule it applies is
+printed at the foot of the register so the numbers can be defended.
+Six accounts means six runs with six `CXI_MY_EMAILS` values, or one Takeout
+per account into one folder.
+
 ## The method
 
 This is the part that matters more than the code.
@@ -170,8 +201,7 @@ messages               id, room -> rooms, author -> users, body, created
 - **Patchi / Gar Shield** becomes the sign-in. Today it is PocketBase's own
   email and password auth; the collection rules do not change when the
   identity layer does.
-- **Handi on your mail**, the same register over Gmail threads, once the
-  spine holds them.
+- **The mail register into the spine**, so Rate the State reads it live.
 - **A Lovable front end** on this spine. The recipe is in `docs/LOVABLE.md`.
 - **Homei on DeepSeek**, self-hosted, once that is the driver model.
 

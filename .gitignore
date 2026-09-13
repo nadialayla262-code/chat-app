@@ -12,3 +12,5 @@ workers/log/
 __pycache__/
 *.pyc
 workers/.handi-password
+# Handi mail register output (your data, never committed)
+register/
