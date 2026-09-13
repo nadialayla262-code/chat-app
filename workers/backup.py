@@ -97,6 +97,7 @@ def main():
     if not os.path.exists(src):
         say(f"the spine reported a backup but {src} is not there; is CXI_PB_DATA right?"); sys.exit(1)
     digest = sha256(src); size = os.path.getsize(src)
+    after_snapshot = counts(live)   # writes may land while the snapshot is taken
     say(f"snapshot {name} ({size:,} bytes, sha256 {digest[:12]})")
 
     # 2. copies
@@ -137,10 +138,13 @@ def main():
         if not args.keep:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    same = all(before.get(c) == after.get(c) for c in COUNT_COLLECTIONS if before.get(c) is not None)
+    # The snapshot is correct if every count sits between the live counts taken just
+    # before and just after it. Workers writing during the backup are not a mismatch.
+    same = all(before.get(c) <= after.get(c) <= after_snapshot.get(c)
+               for c in COUNT_COLLECTIONS if before.get(c) is not None and after.get(c) is not None)
     summary = ", ".join(f"{c} {after.get(c)}" for c in COUNT_COLLECTIONS if after.get(c) is not None)
     if not same:
-        say(f"RESTORE MISMATCH. live: {before}  restored: {after}"); sys.exit(1)
+        say(f"RESTORE MISMATCH. live before: {before}  after: {after_snapshot}  restored: {after}"); sys.exit(1)
     say(f"RESTORE VERIFIED: {summary}")
 
     # 4. the log, append-only, in every destination

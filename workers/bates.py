@@ -102,11 +102,16 @@ def stamp_pdf(src_reader, out_path, prefix, first, digits):
 
 
 def image_to_pdf_reader(path):
+    """Every frame becomes a page: a six-page TIFF fax is six numbered pages, not one."""
+    from PIL import ImageSequence
     img = Image.open(path)
-    if img.mode not in ("RGB", "L"):
-        img = img.convert("RGB")
+    frames = []
+    for frame in ImageSequence.Iterator(img):
+        f = frame.convert("RGB") if frame.mode not in ("RGB", "L") else frame.copy()
+        frames.append(f)
     buf = io.BytesIO()
-    img.save(buf, format="PDF", resolution=img.info.get("dpi", (150, 150))[0] or 150)
+    dpi = img.info.get("dpi", (150, 150))[0] or 150
+    frames[0].save(buf, format="PDF", resolution=dpi, save_all=True, append_images=frames[1:])
     buf.seek(0)
     return PdfReader(buf)
 

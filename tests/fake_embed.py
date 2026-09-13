@@ -1,5 +1,5 @@
 """A stand-in for Ollama's /api/embed: a deterministic bag-of-words vector, so search can be tested without a model.
-Also answers /api/chat like fake_model.py, so one process serves both."""
+Also answers /api/chat, so one process serves both. A last message containing "slow" is answered after 3 seconds."""
 import hashlib, json, math, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 11435
@@ -20,6 +20,8 @@ class H(BaseHTTPRequestHandler):
             out = {"model": body["model"], "embeddings": [embed(t) for t in inp]}
         else:
             msgs = body["messages"]
+            if "slow" in msgs[-1]["content"].lower():
+                import time; time.sleep(3)
             system = msgs[0]["content"] if msgs and msgs[0]["role"] == "system" else ""
             remembered = ""
             if "What you remember" in system:

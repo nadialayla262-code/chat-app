@@ -247,7 +247,9 @@ CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
   routes only. Every chunk carries its text, its embedding, and the model
   that made it.
 - Re-running the indexer is cheap. Same file hash, same model: skipped.
-  Change the model: only the missing embeddings are made.
+  A second model indexes alongside the first; nothing is overwritten. A
+  changed chunk size is refused for already-indexed files unless you pass
+  `--rechunk`, so search never quotes a corpus that never existed.
 - Set `CXI_BATES_LEDGER` to a Bates `ledger.csv` and every document gets
   its Bates range, so a search result names the exhibit.
 - Search keeps a small binary cache of vectors in `workers/.vectors/` and

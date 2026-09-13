@@ -4,7 +4,9 @@
 Walks a folder of text files, cuts each into chunks, embeds every chunk
 through the local model, and stores documents and chunks in the spine.
 Re-running is cheap: a file whose hash is already in `documents` is
-skipped; a chunk already embedded with the same model is skipped.
+skipped; a chunk already embedded with the same model is skipped. A second
+model indexes alongside the first; nothing is overwritten. A changed chunk
+size is refused for already-indexed files unless you pass --rechunk.
 
     CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \\
       python3 workers/index.py --in ~/CXI/extracted
@@ -86,7 +88,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--in", dest="src", required=True)
     ap.add_argument("--batch", type=int, default=16, help="chunks per embedding call")
+    ap.add_argument("--rechunk", action="store_true",
+                    help="if the chunk size changed since a document was indexed, throw away its chunks for this model and redo them")
     args = ap.parse_args()
+    chunking = f"{CHUNK}/{OVERLAP}"
 
     spine = Superuser(); spine.sign_in()
     model = Model(EMBED_MODEL)
@@ -114,12 +119,26 @@ def main():
         data = {
             "path": os.path.abspath(path), "sha256": digest,
             "title": os.path.splitext(os.path.basename(path))[0], "chars": len(text), "chunks": len(pieces),
+            "chunking": chunking,
         }
         if digest in bates:
             data["bates_start"], data["bates_end"] = bates[digest]
         if doc:
-            # same file; only re-embed chunks missing this model
-            have = {c["ordinal"] for c in spine.list_all("chunks", f"document = {q(doc['id'])} && model = {q(EMBED_MODEL)}", fields="id,ordinal")}
+            mine = f"document = {q(doc['id'])} && model = {q(EMBED_MODEL)}"
+            if doc.get("chunking") and doc["chunking"] != chunking:
+                # The text was cut differently last time. Mixing old and new pieces
+                # would make search quote a corpus that never existed. Refuse, or redo on request.
+                if not args.rechunk:
+                    say(f"  {os.path.basename(path)}: indexed with chunking {doc['chunking']}, now {chunking}; "
+                        f"skipped. Run with --rechunk to redo it, or set CXI_CHUNK_CHARS/OVERLAP back.")
+                    skipped += 1
+                    continue
+                old = list(spine.list_all("chunks", mine, fields="id"))
+                for c in old:
+                    spine.delete("chunks", c["id"])
+                say(f"  {os.path.basename(path)}: re-chunking ({doc['chunking']} -> {chunking}), {len(old)} old chunks removed for {EMBED_MODEL}")
+            # only embed the chunks this model does not have yet
+            have = {c["ordinal"] for c in spine.list_all("chunks", mine, fields="id,ordinal")}
             if len(have) == len(pieces):
                 skipped += 1
                 continue
@@ -135,7 +154,7 @@ def main():
             started = time.time()
             vectors = model.embed([p for _, p in batch])
             for (i, p), v in zip(batch, vectors):
-                spine.upsert("chunks", f"document = {q(doc['id'])} && ordinal = {i}",
+                spine.upsert("chunks", f"document = {q(doc['id'])} && model = {q(EMBED_MODEL)} && ordinal = {i}",
                              {"document": doc["id"], "ordinal": i, "text": p, "embedding": v, "model": EMBED_MODEL, "dim": len(v)})
                 new_chunks += 1
             say(f"  {os.path.basename(path)}: chunks {batch[0][0]}–{batch[-1][0]} embedded ({time.time() - started:.1f}s)")

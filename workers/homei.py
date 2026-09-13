@@ -139,8 +139,11 @@ def main():
     cursor = now_iso()          # only answer what arrives from now on
     rooms = {}                  # small cache of room records
     model_down = False
+    retry = {}                  # rooms still owed an answer after a model outage
+    last_fail = 0.0
 
     while True:
+        spine.keep_alive()
         try:
             fresh = spine.messages_since(cursor)
         except Exception as e:  # spine unreachable: report, wait, retry
@@ -150,8 +153,9 @@ def main():
 
         # One answer per room per pass: if several lines arrived together
         # (or a backlog appeared because Homei was just invited), reply once,
-        # to the thread as it stands, not once per line.
-        pending = {}
+        # to the thread as it stands, not once per line. Rooms owed an answer
+        # from an outage come first, tried again no more than every 30s.
+        pending = dict(retry) if (retry and time.time() - last_fail > 30) else {}
         for msg in fresh:
             cursor = max(cursor, msg["created"])
             rid = msg["room"]
@@ -165,18 +169,24 @@ def main():
 
         for rid, msg in pending.items():
             started = time.time()
-            direct = handle_memory(spine, msg, my_id)
-            if direct is not None:
-                posted = spine.send(rid, direct)
-                cursor = max(cursor, posted["created"])
-                say(f"memory: {direct.splitlines()[0][:60]}")
+            try:
+                direct = handle_memory(spine, msg, my_id)
+                if direct is not None:
+                    spine.send(rid, direct)
+                    retry.pop(rid, None)
+                    say(f"memory: {direct.splitlines()[0][:60]}")
+                    continue
+                history = spine.history(rid, HISTORY)
+                if history and history[-1]["author"] == my_id:
+                    retry.pop(rid, None)
+                    continue  # the last word in the room is already Homei's
+                turns = build_turns(history, my_id)
+                people = {m["author"] for m in history if m["author"] != my_id}
+                prompt = system + memory_block(history, memories_for(spine, people))
+            except Exception as e:  # the spine hiccuped mid-room: say so, keep the room owed, carry on
+                say(f"spine error in '{rooms.get(rid, {}).get('name', rid)}': {e}")
+                retry[rid] = msg
                 continue
-            history = spine.history(rid, HISTORY)
-            if history and history[-1]["author"] == my_id:
-                continue  # the last word in the room is already Homei's
-            turns = build_turns(history, my_id)
-            people = {m["author"] for m in history if m["author"] != my_id}
-            prompt = system + memory_block(history, memories_for(spine, people))
             try:
                 reply = model.ask(prompt, turns)
                 if model_down:
@@ -184,15 +194,27 @@ def main():
                     model_down = False
             except Exception as e:
                 say(f"model failed: {e}")
+                retry[rid] = msg          # owed; answered when the model returns
+                last_fail = time.time()
                 if not model_down:
-                    spine.send(rid, "I can't reach my model right now. I'll answer as soon as it's back.")
+                    try:
+                        spine.send(rid, "I can't reach my model right now. I'll answer as soon as it's back.")
+                    except Exception:
+                        pass
                     model_down = True
                 continue
+            retry.pop(rid, None)
             if not reply:
                 continue
 
-            posted = spine.send(rid, reply)
-            cursor = max(cursor, posted["created"])
+            try:
+                posted = spine.send(rid, reply)
+            except Exception as e:
+                say(f"could not post in '{rooms.get(rid, {}).get('name', rid)}': {e}")
+                retry[rid] = msg
+                continue
+            # The cursor is not advanced to the reply: anything written while the
+            # model was thinking is still newer than the cursor and gets read next pass.
             log_append(LOG_FILE, {
                 "at": now_iso(),
                 "room": rooms[rid].get("name", rid),

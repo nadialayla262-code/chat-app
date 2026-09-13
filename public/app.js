@@ -53,6 +53,7 @@
     messages: [],
     unwatchMessages: null,
     unwatchRooms: null,
+    openToken: 0,   // which openRoom call is the current one
   };
 
   // ---------- Helpers ----------
@@ -130,12 +131,18 @@
     }
   });
 
-  el.signout.addEventListener("click", async () => {
+  /** Tear down everything about the current person: feeds, room, list. Used by sign-out and by a session ending on its own. */
+  const reset = async () => {
     await leaveRoom();
     if (state.unwatchRooms) { state.unwatchRooms(); state.unwatchRooms = null; }
-    cxi.auth.signOut();
     state.rooms = [];
     el.roomList.innerHTML = "";
+    el.you.textContent = "";
+  };
+
+  el.signout.addEventListener("click", async () => {
+    await reset();
+    cxi.auth.signOut();
     showAuth();
   });
 
@@ -160,11 +167,6 @@
       li.appendChild(b);
       el.roomList.appendChild(li);
     }
-  };
-
-  const loadRooms = async () => {
-    state.rooms = await cxi.rooms.list();
-    renderRooms();
   };
 
   const watchRooms = async () => {
@@ -302,8 +304,11 @@
       el.messageList.appendChild(el.emptyState);
       return;
     }
+    // Only follow the bottom if the reader was already there; never yank someone out of the history.
+    const wasAtBottom = el.messageList.scrollHeight - el.messageList.scrollTop - el.messageList.clientHeight < 80;
     for (const m of state.messages) el.messageList.appendChild(renderMessage(m));
-    el.messageList.scrollTop = el.messageList.scrollHeight;
+    if (wasAtBottom || el.messageList.dataset.fresh !== "no") el.messageList.scrollTop = el.messageList.scrollHeight;
+    el.messageList.dataset.fresh = "no";
   };
 
   const upsertMessage = (m) => {
@@ -332,6 +337,7 @@
     if (state.roomId === roomId) { el.roomsPanel.classList.remove("open"); return; }
     await leaveRoom();
     clearError(el.chatError);
+    const token = ++state.openToken;
     const room = state.rooms.find((r) => r.id === roomId);
     state.roomId = roomId;
     el.roomTitle.textContent = room ? room.name : "Room";
@@ -339,6 +345,7 @@
     renderRooms();
     renderRoomInfo();
 
+    el.messageList.dataset.fresh = "yes";   // first render of a room always lands at the bottom
     // Restore an unsent draft for this room. If you were interrupted, it waits.
     try { el.body.value = localStorage.getItem(draftKey(roomId)) || ""; } catch (_) {}
     el.composer.hidden = false;
@@ -346,13 +353,15 @@
     try {
       // Subscribe before loading history so nothing sent in between is lost;
       // upsert dedupes anything that arrives both ways.
-      state.unwatchMessages = await cxi.messages.watch(roomId, ({ action, message }) => {
+      const unwatch = await cxi.messages.watch(roomId, ({ action, message }) => {
         if (state.roomId !== roomId) return;
         if (action === "delete") removeMessage(message.id);
         else upsertMessage(message);
       });
+      if (token !== state.openToken) { unwatch(); return; }  // another room was opened meanwhile
+      state.unwatchMessages = unwatch;
       const history = await cxi.messages.history(roomId, 100);
-      if (state.roomId !== roomId) return;
+      if (token !== state.openToken) return;
       const seen = new Set(history.map((m) => m.id));
       state.messages = history.concat(state.messages.filter((m) => !seen.has(m.id)));
       renderMessages();
@@ -383,6 +392,7 @@
       const sent = await cxi.messages.send(state.roomId, body);
       el.body.value = "";
       try { localStorage.removeItem(draftKey(state.roomId)); } catch (_) {}
+      el.messageList.dataset.fresh = "yes";  // your own line always brings you to the bottom
       upsertMessage(sent); // the live feed also delivers it; upsert dedupes by id
     } catch (err) {
       showError(el.chatError, err);
@@ -396,14 +406,19 @@
   const enterChat = async () => {
     showChat();
     try {
-      await loadRooms();
+      // Feed first, then the list, merged by id: a room created or an invite
+      // received in between is not missed.
       await watchRooms();
+      const listed = await cxi.rooms.list();
+      const seen = new Set(listed.map((r) => r.id));
+      state.rooms = listed.concat(state.rooms.filter((r) => !seen.has(r.id))).sort(byName);
+      renderRooms();
     } catch (err) {
       showError(el.chatError, err);
     }
   };
 
-  cxi.auth.onSignedOut(() => { if (!el.chat.hidden) showAuth(); });
+  cxi.auth.onSignedOut(async () => { if (!el.chat.hidden) { await reset(); showAuth(); } });
 
   (async () => {
     setMode("signin");

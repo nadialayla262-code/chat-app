@@ -180,6 +180,7 @@ def main():
         return rooms[rid].get("name", rid)
 
     while True:
+        spine.keep_alive()
         try:
             fresh = spine.messages_since(cursor)
         except Exception as e:
@@ -196,40 +197,47 @@ def main():
 
         for rid, (msg, want_all) in asks.items():
             started = time.time()
-            m = WANTS_FIND.search(msg["body"])
-            if m:
-                room = spine.room(rid) if rid not in rooms else rooms[rid]
-                rooms[rid] = room
-                if not room.get("private"):
-                    body = "I only search the corpus in a private room."
+            try:
+                room_name(rid)
+                here = rooms.get(rid) or {}
+                m = WANTS_FIND.search(msg["body"])
+                if m:
+                    if not here.get("private"):
+                        body = "I only search the corpus in a private room."
+                    else:
+                        try:
+                            body = find(corpus, embedder, m.group(2).strip())
+                        except Exception as e:
+                            say(f"find failed: {e}")
+                            body = "Search failed. The reason is in my log."
+                    posted = spine.send(rid, body)
+                    log_append(LOG_FILE, {"at": now_iso(), "room": room_name(rid), "room_id": rid, "find": m.group(2).strip(),
+                                          "trigger_message": msg["id"], "reply_message": posted["id"], "seconds": round(time.time() - started, 2)})
+                    say(f"search posted in '{room_name(rid)}' for {author_name(msg)}")
+                    continue
+                if want_all:
+                    # What is said in a private room stays in private rooms: from an
+                    # open room, "all" covers open rooms only.
+                    targets = [r["id"] for r in spine.rooms() if here.get("private") or not r.get("private")]
                 else:
-                    try:
-                        body = find(corpus, embedder, m.group(2).strip())
-                    except Exception as e:
-                        say(f"find failed: {e}")
-                        body = "Search failed. The reason is in my log."
-                posted = spine.send(rid, body)
-                cursor = max(cursor, posted["created"])
-                log_append(LOG_FILE, {"at": now_iso(), "room": room_name(rid), "room_id": rid, "find": m.group(2).strip(),
-                                      "trigger_message": msg["id"], "reply_message": posted["id"], "seconds": round(time.time() - started, 2)})
-                say(f"search posted in '{room_name(rid)}' for {author_name(msg)}")
-                continue
-            targets = [r["id"] for r in spine.rooms()] if want_all else [rid]
-            parts = []
-            for tid in targets:
-                hist = spine.history(tid, HISTORY)
-                parts.append(render(room_name(tid), register(hist, my_id)))
-            text = "\n\n".join(parts)
+                    targets = [rid]
+                parts = []
+                for tid in targets:
+                    hist = spine.history(tid, HISTORY)
+                    parts.append(render(room_name(tid), register(hist, my_id)))
+                text = "\n\n".join(parts)
 
-            summary = ""
-            if USE_MODEL and not want_all:
-                try:
-                    summary = model.ask(system, [{"role": "user", "content": text}], temperature=0.2)
-                except Exception as e:
-                    say(f"model unavailable, register only: {e}")
-            body = text + (("\n\n" + summary) if summary else "")
-            posted = spine.send(rid, body)
-            cursor = max(cursor, posted["created"])
+                summary = ""
+                if USE_MODEL and not want_all:
+                    try:
+                        summary = model.ask(system, [{"role": "user", "content": text}], temperature=0.2)
+                    except Exception as e:
+                        say(f"model unavailable, register only: {e}")
+                body = text + (("\n\n" + summary) if summary else "")
+                posted = spine.send(rid, body)
+            except Exception as e:  # one room failing must not stop the seat
+                say(f"error in room {rid}: {e}")
+                continue
             log_append(LOG_FILE, {
                 "at": now_iso(), "room": room_name(rid), "room_id": rid, "all": want_all,
                 "trigger_message": msg["id"], "reply_message": posted["id"],

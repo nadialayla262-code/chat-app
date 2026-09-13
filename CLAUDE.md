@@ -54,7 +54,8 @@ both before your first change.
 Green or it does not ship. Browser and Bates suites skip themselves if
 Playwright or the PDF libraries are missing; say so in the commit if they
 were skipped. The Homei and Handi suites run against `tests/fake_embed.py`,
-so worker logic is tested; the real model is not.
+so worker logic is tested; the real model is not. A last message containing
+"slow" makes the stand-in wait 3 seconds, for testing what happens while a model thinks.
 
 When you change the page, run `tests/browser.js`. When you change a rule,
 run `tests/rules.js`. When you add a worker, add a test for it.
@@ -88,6 +89,14 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
   message sent in between is lost. The page does this; keep it that way.
 - `pkill -f` with a pattern that appears in your own shell command kills
   the shell. Stop processes by id.
+- Never advance a worker's poll cursor to its own reply's timestamp:
+  everything written while the model was thinking sits between the trigger
+  and the reply and would be skipped forever. Advance only past what was read.
+- A worker token expires (7 days by default) and the worker silently becomes
+  a guest that sees nothing. `Spine.keep_alive()` refreshes hourly; call it
+  in every long loop.
+- Wrap the per-item body of a worker loop in try/except. One failed call
+  must not stop the seat.
 - PocketBase backup names must match `[a-z0-9_-]+\.zip`; no uppercase.
 - A required number field rejects 0 ("cannot be blank"). Leave `required`
   off and let a unique index enforce presence.

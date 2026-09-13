@@ -42,6 +42,23 @@ r3 = run("index.py", "--in", src)
 s4 = run("search.py", "--json", "financial administrator bank")
 res4 = json.loads(s4.stdout[s4.stdout.index("["):])
 check("new document indexed and found after cache refresh", "1 new documents" in r3.stdout and res4[0]["document"] == "d-new", res4[0]["document"])
+# a second model indexes alongside the first; nothing overwritten
+env2 = dict(env, CXI_EMBED_MODEL="fake-embed-2")
+r5 = subprocess.run([sys.executable, os.path.join(wd, "index.py"), "--in", src], env=env2, cwd=wd, capture_output=True, text=True)
+import urllib.request as _u, json as _j
+def count_model(m):
+    tok = _j.load(_u.urlopen(_u.Request(f"{BASE}/api/collections/_superusers/auth-with-password", data=_j.dumps({"identity":"test@cxi.local","password":"test-superuser-pass"}).encode(), headers={"Content-Type":"application/json"})))["token"]
+    from urllib.parse import quote
+    filt = quote('model = "' + m + '"')
+    return _j.load(_u.urlopen(_u.Request(f"{BASE}/api/collections/chunks/records?perPage=1&filter={filt}", headers={"Authorization": tok})))["totalItems"]
+c1, c2 = count_model("fake-embed"), count_model("fake-embed-2")
+check("second model indexed alongside, first intact", r5.returncode == 0 and c1 > 0 and c2 == c1, f"{c1} vs {c2}")
+# a changed chunk size is refused for indexed files unless --rechunk
+env3 = dict(env, CXI_CHUNK_CHARS="200", CXI_CHUNK_OVERLAP="20")
+r6 = subprocess.run([sys.executable, os.path.join(wd, "index.py"), "--in", src], env=env3, cwd=wd, capture_output=True, text=True)
+check("changed chunk size refused without --rechunk", "skipped. Run with --rechunk" in r6.stdout and "0 chunks embedded" in r6.stdout)
+r7 = subprocess.run([sys.executable, os.path.join(wd, "index.py"), "--in", src, "--rechunk"], env=env3, cwd=wd, capture_output=True, text=True)
+check("--rechunk redoes this model only", "re-chunking" in r7.stdout and count_model("fake-embed-2") == c2, f"model2 still {count_model('fake-embed-2')}")
 for col in ("documents", "chunks"):
     code = urllib.request.urlopen(urllib.request.Request(f"{BASE}/api/collections/{col}/records")).getcode() if False else None
     try:

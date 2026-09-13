@@ -60,6 +60,19 @@ const waitFor = async (pb, roomId, name, ms = 8000) => {
   const forgot = (await from(me.pb, m2.id, "Homei")).pop().body;
   check("forget removes it", forgot.startsWith("Forgotten:") && (await me.pb.collection("memories").getFullList()).length === 0, forgot);
 
+  console.log("homei while thinking");
+  const s1 = await me.pb.collection("rooms").create({ name: `homei-slow-${t}`, created_by: me.id });
+  const s2 = await me.pb.collection("rooms").create({ name: `homei-side-${t}`, created_by: me.id });
+  await me.pb.collection("messages").create({ room: s1.id, author: me.id, body: "answer slow please" });
+  await sleep(700);  // Homei has picked it up and is waiting on the model
+  await me.pb.collection("messages").create({ room: s2.id, author: me.id, body: "homei, remember my hearing is on Friday" });
+  await sleep(6000);
+  const slow = await from(me.pb, s1.id, "Homei"), side = await from(me.pb, s2.id, "Homei");
+  check("slow answer arrived", slow.length === 1 && slow[0].body.includes("slow"));
+  check("a line written while the model was thinking was not lost", side.length === 1 && side[0].body === "Kept: my hearing is on Friday", side[0]?.body);
+  await me.pb.collection("messages").create({ room: s2.id, author: me.id, body: "homei, forget hearing" });
+  await sleep(2000);
+
   console.log("handi");
   const r3 = await me.pb.collection("rooms").create({ name: `thread-${t}`, created_by: me.id });
   const post = async (who, body) => { await who.pb.collection("messages").create({ room: r3.id, author: who.id, body }); await sleep(150); };
@@ -80,6 +93,17 @@ const waitFor = async (pb, roomId, name, ms = 8000) => {
   const all = (await from(me.pb, r3.id, "Handi")).pop().body;
   check("'all' covers this room", all.includes(`thread-${t}`));
   check("'all' skips a private room it is not in", !all.includes(`homei-private-${t}`) || false);
+  const vaultA = await me.pb.collection("rooms").create({ name: `vaultall-${t}`, private: true, created_by: me.id, members: [me.id] });
+  await me.pb.send("/api/cxi/invite", { method: "POST", body: { room: vaultA.id, email: "handi@cxi.local" } });
+  await me.pb.collection("messages").create({ room: vaultA.id, author: me.id, body: "did the hospital send the file?" });
+  await post(me, "@handi all");
+  await sleep(3000);
+  const allPublic = (await from(me.pb, r3.id, "Handi")).pop().body;
+  check("'all' from an open room keeps private rooms out", !allPublic.includes(`vaultall-${t}`) && !allPublic.includes("hospital"));
+  await me.pb.collection("messages").create({ room: vaultA.id, author: me.id, body: "@handi all" });
+  await sleep(3000);
+  const allPrivate = (await from(me.pb, vaultA.id, "Handi")).pop().body;
+  check("'all' from a private room covers everything it can see", allPrivate.includes(`vaultall-${t}`) && allPrivate.includes(`thread-${t}`));
 
   console.log("handi find");
   await post(me, "@handi find signature added later different ink");

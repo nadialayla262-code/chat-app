@@ -21,11 +21,15 @@ c = canvas.Canvas(os.path.join(ev, "sub", "c-order.pdf"), pagesize=landscape(A4)
 for i in range(2): c.drawString(72, 500, f"order page {i+1}"); c.showPage()
 c.save()
 Image.new("RGB", (1200, 1600), "white").save(os.path.join(ev, "a-scan.jpg"))
+f1, f2 = Image.new("L", (800, 1000), 255), Image.new("L", (800, 1000), 200)
+f1.save(os.path.join(ev, "d-fax.tif"), save_all=True, append_images=[f2])
 open(os.path.join(ev, "e-notes.docx"), "wb").write(b"PK fake")
 run = lambda: subprocess.run([sys.executable, os.path.join(ROOT, "workers", "bates.py"), "--in", ev, "--out", ex], capture_output=True, text=True).stdout
 o1 = run()
 ledger = list(csv.DictReader(open(os.path.join(ex, "ledger.csv"))))
-check("four exhibits numbered", len(ledger) == 4, o1.strip().splitlines()[-1])
+check("five exhibits numbered", len(ledger) == 5, o1.strip().splitlines()[-1])
+fax = next(r for r in ledger if "d-fax" in r["original_path"])
+check("two-frame TIFF is two numbered pages", fax["pages"] == "2" and fax["bates_start"] != fax["bates_end"], f"{fax['bates_start']}-{fax['bates_end']}")
 check("path order: scan first, record second", ledger[0]["bates_start"] == "CXI-000001" and ledger[1]["bates_start"] == "CXI-000002" and ledger[1]["bates_end"] == "CXI-000004")
 check("docx flagged not stamped", any(r["stamped"] == "no" for r in ledger))
 o2 = run(); check("re-run numbers nothing", "0 new exhibits" in o2)
@@ -34,7 +38,7 @@ c = canvas.Canvas(os.path.join(ev, "g-new.pdf"), pagesize=A4); c.drawString(72, 
 o3 = run()
 check("duplicate reported, not renumbered", "duplicate: f-copy.pdf" in o3 and "1 new exhibits" in o3)
 ledger = list(csv.DictReader(open(os.path.join(ex, "ledger.csv"))))
-check("ledger append-only, five rows, new file takes next free number", len(ledger) == 5 and ledger[-1]["bates_start"] == "CXI-000008")
+check("ledger append-only, six rows, new file takes next free number", len(ledger) == 6 and ledger[-1]["bates_start"] == "CXI-000010")
 for r in ledger:
     if r["stamped"] != "yes": continue
     pages = PdfReader(r["stamped_path"]).pages

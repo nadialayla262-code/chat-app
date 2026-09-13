@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -85,7 +86,25 @@ class Spine:
         r = http("POST", f"{self.base}/api/collections/users/auth-with-password",
                  {"identity": email, "password": password})
         self.token, self.me = r["token"], r["record"]
+        self._creds = (email, password)
+        self._refreshed = time.time()
         return self.me
+
+    def keep_alive(self, every=3600):
+        """Call from a long-running loop. Refreshes the token hourly; signs in again if that fails.
+        An expired token turns a worker into a guest that sees nothing, silently. This prevents that."""
+        if time.time() - getattr(self, "_refreshed", 0) < every:
+            return
+        try:
+            r = http("POST", f"{self.base}/api/collections/{self._auth_collection}/auth-refresh", {}, headers=self._h())
+            self.token, self.me = r["token"], r["record"]
+        except Exception:
+            email, password = getattr(self, "_creds", (None, None))
+            if email:
+                self.sign_in(email, password)
+        self._refreshed = time.time()
+
+    _auth_collection = "users"
 
     def sign_up(self, name, email, password):
         http("POST", f"{self.base}/api/collections/users/records",
@@ -170,6 +189,8 @@ class Superuser(Spine):
     """The same spine, signed in as a superuser. Locked collections open up.
     Reads CXI_SUPERUSER_EMAIL / CXI_SUPERUSER_PASSWORD."""
 
+    _auth_collection = "_superusers"
+
     def sign_in(self, email=None, password=None):
         email = email or os.environ.get("CXI_SUPERUSER_EMAIL")
         password = password or os.environ.get("CXI_SUPERUSER_PASSWORD")
@@ -178,6 +199,8 @@ class Superuser(Spine):
         r = http("POST", f"{self.base}/api/collections/_superusers/auth-with-password",
                  {"identity": email, "password": password})
         self.token, self.me = r["token"], r["record"]
+        self._creds = (email, password)
+        self._refreshed = time.time()
         return self.me
 
 
