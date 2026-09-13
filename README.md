@@ -47,6 +47,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `workers/index.py`, `workers/search.py` | The corpus in the spine: chunk, embed, search. |
+| `workers/backup.py` | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `tests/` | One command that proves all of the above. |
 | `HANDOVER.md`, `CLAUDE.md` | The state of things for a person, and the rules for a Claude Code session. |
@@ -256,6 +257,22 @@ CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
 - A chunk embedded at a different dimension is never scored. A different
   model is a different index.
 
+## Back up, and prove it
+
+```sh
+CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/backup.py /Volumes/T7/cxi-backups "~/Google Drive/cxi-backups"
+```
+
+The running spine takes a consistent snapshot of itself. The zip is
+copied to every folder you name and hash-checked after each copy. Then
+it is unpacked, a throwaway spine is started on it, every collection is
+counted and compared with the live one, and only if they match does the
+run say RESTORE VERIFIED. One line goes into `backups.log` in each
+destination: when, which file, hash, size, verified counts. Append-only.
+
+A backup that has not been restored is a hope. This one has been.
+
 ## Bates numbering
 
 Non-negotiable for filing. Every page of every exhibit gets a number that
@@ -330,7 +347,8 @@ phone first, keyboard works everywhere, respects reduced-motion and dark mode.
 Starts a throwaway spine on another port, a stand-in model, Homei and
 Handi, and runs every suite: access rules straight against the API, both
 workers, the mail register end to end into the spine, the corpus indexed
-and searched, Bates numbering, and the page in two real browsers. Ends with `ALL GREEN`. Your database is
+and searched, Bates numbering, and the page in two real browsers, a backup restored and counted, and the
+sign-up code on a second spine. Ends with `ALL GREEN`. Your database is
 never touched. `./tests/run.sh rules` runs one suite.
 
 ## Data model

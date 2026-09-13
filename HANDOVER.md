@@ -17,6 +17,7 @@ up. Nothing here needs Claude Code to run.
 | **The register in the spine** | Loads that register into your database, locked to you. Two public routes give counts only, and only for organisations you flag published. | Working, tested |
 | **Bates numbering** | Every page of every exhibit gets a permanent number. Ledger is append-only. Duplicates are named. Originals never touched. | Working, tested. Needs `pip3 install pypdf reportlab pillow` |
 | **The corpus in the spine** | `index.py` chunks and embeds your text files into locked collections; `search.py` finds the passage and names the exhibit. | Working, tested with a stand-in embedder. Not yet run on the real corpus or the real embedding model |
+| **Backup with a tested restore** | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. | Working, tested |
 | **The Lovable recipe** | `docs/LOVABLE.md`: tunnel from the Mac, a paste-ready first message for Lovable. | Written, not yet fired: needs the tunnel up first |
 
 ## Bring it up
@@ -68,9 +69,17 @@ needs the code. Do this before `cloudflared` runs, not after.
 
 ## Back up
 
-`pb_data/` is the whole state of the chat and the register. It goes on the
-same schedule as everything else: working copy on the Mac, T7 weekly,
-secondary cloud. `register/` and `~/CXI/exhibits/` likewise. The repo
+`pb_data/` is the whole state: chat, register, memories, corpus. One
+command snapshots it, copies it to the T7 and the secondary, and proves
+the copy restores before it says so:
+
+```sh
+CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/backup.py /Volumes/T7/cxi-backups "~/Google Drive/cxi-backups"
+```
+
+Weekly, or after anything you would mind losing. `register/` and
+`~/CXI/exhibits/` are plain folders; copy them the same way. The repo
 itself carries no data.
 
 ## What is not done

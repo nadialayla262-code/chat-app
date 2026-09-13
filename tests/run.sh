@@ -2,7 +2,7 @@
 # Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
 #
 #   ./tests/run.sh            # all
-#   ./tests/run.sh rules      # one of: rules workers browser register corpus bates signup
+#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates signup
 #
 # Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
 # Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
@@ -45,11 +45,13 @@ status=0
 run() { echo; echo "== $1 =="; shift; "$@" || status=1; }
 case "$want" in
   all)      run rules node tests/rules.js; run register "$PY" tests/register.py; run corpus "$PY" tests/corpus.py
-            run workers node tests/workers.js; run bates "$PY" tests/bates.py; run browser node tests/browser.js ;;
+            run workers node tests/workers.js; run backup "$PY" tests/backup.py; run bates "$PY" tests/bates.py
+            run browser node tests/browser.js ;;
   rules)    run rules node tests/rules.js ;;
   workers)  run workers node tests/workers.js ;;
   register) run register "$PY" tests/register.py ;;
   corpus)   run corpus "$PY" tests/corpus.py ;;
+  backup)   run backup "$PY" tests/backup.py ;;
   bates)    run bates "$PY" tests/bates.py ;;
   browser)  run browser node tests/browser.js ;;
   signup)   : ;;
