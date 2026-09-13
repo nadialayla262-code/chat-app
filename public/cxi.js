@@ -6,7 +6,7 @@
  *
  * Shape of a record as the app sees it:
  *   user     { id, name, email? }
- *   room     { id, name, topic, created_by, created }
+ *   room     { id, name, topic, private, created_by, members: [{id, name}], created }
  *   message  { id, room, author, author_name, body, created }
  */
 (function (global) {
@@ -23,9 +23,20 @@
     body: r.body,
     created: r.created,
   });
-  const asRoom = (r) => ({
-    id: r.id, name: r.name, topic: r.topic || "", created_by: r.created_by, created: r.created,
-  });
+  const asRoom = (r) => {
+    const ids = Array.isArray(r.members) ? r.members : [];
+    const expanded = (r.expand && r.expand.members) || [];
+    const names = new Map(expanded.map((u) => [u.id, u.name || ""]));
+    return {
+      id: r.id,
+      name: r.name,
+      topic: r.topic || "",
+      private: !!r.private,
+      created_by: r.created_by,
+      members: ids.map((id) => ({ id, name: names.get(id) || "" })),
+      created: r.created,
+    };
+  };
   const asUser = (u) => (u ? { id: u.id, name: u.name || "", email: u.email || "" } : null);
 
   /** Turn a back-end error into one plain sentence. */
@@ -75,16 +86,28 @@
 
     rooms: {
       async list() {
-        const rows = await pb.collection("rooms").getFullList({ sort: "name" });
+        const rows = await pb.collection("rooms").getFullList({ sort: "name", expand: "members" });
         return rows.map(asRoom);
       },
-      async create({ name, topic = "" }) {
-        const r = await pb.collection("rooms").create({ name, topic, created_by: pb.authStore.record.id });
+      /** A private room starts with its owner as the only member. */
+      async create({ name, topic = "", private: isPrivate = false }) {
+        const me = pb.authStore.record.id;
+        const r = await pb.collection("rooms").create(
+          { name, topic, private: isPrivate, created_by: me, members: isPrivate ? [me] : [] },
+          { expand: "members" },
+        );
         return asRoom(r);
+      },
+      /** Owner only. Looks the person up by email on the server; returns { id, name }. */
+      async invite(roomId, email) {
+        return pb.send("/api/cxi/invite", { method: "POST", body: { room: roomId, email } });
+      },
+      async uninvite(roomId, userId) {
+        return pb.send("/api/cxi/uninvite", { method: "POST", body: { room: roomId, user: userId } });
       },
       /** fn({ action: "create"|"update"|"delete", room }) — returns an unsubscribe function. */
       async watch(fn) {
-        return pb.collection("rooms").subscribe("*", (e) => fn({ action: e.action, room: asRoom(e.record) }));
+        return pb.collection("rooms").subscribe("*", (e) => fn({ action: e.action, room: asRoom(e.record) }), { expand: "members" });
       },
     },
 

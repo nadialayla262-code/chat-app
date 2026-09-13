@@ -28,6 +28,11 @@
     roomList: $("room-list"),
     roomForm: $("room-form"),
     roomName: $("room-name"),
+    roomPrivate: $("room-private"),
+    roomInfo: $("room-info"),
+    members: $("members"),
+    inviteForm: $("invite-form"),
+    inviteEmail: $("invite-email"),
     messageList: $("message-list"),
     emptyState: $("empty-state"),
     composer: $("composer"),
@@ -122,7 +127,14 @@
       if (r.id === state.roomId) li.className = "active";
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = r.name;
+      if (r.private) {
+        const lock = document.createElement("span");
+        lock.className = "lock";
+        lock.textContent = "🔒";
+        lock.setAttribute("aria-label", "Private room");
+        b.appendChild(lock);
+      }
+      b.appendChild(document.createTextNode(r.name));
       b.title = r.topic || r.name;
       b.addEventListener("click", () => openRoom(r.id));
       li.appendChild(b);
@@ -148,8 +160,32 @@
       }
       state.rooms.sort(byName);
       renderRooms();
+      if (room.id === state.roomId) renderRoomInfo();
     });
   };
+
+  const renderRoomInfo = () => {
+    const room = state.rooms.find((r) => r.id === state.roomId);
+    if (!room || !room.private) { el.roomInfo.hidden = true; return; }
+    const names = room.members.map((m) => m.name || "someone");
+    el.members.textContent = `Private · ${names.length} ${names.length === 1 ? "member" : "members"}: ${names.join(", ")}`;
+    el.inviteForm.hidden = room.created_by !== me().id;
+    el.roomInfo.hidden = false;
+  };
+
+  el.inviteForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearError(el.chatError);
+    const email = el.inviteEmail.value.trim();
+    if (!email || !state.roomId) return;
+    try {
+      await cxi.rooms.invite(state.roomId, email);
+      el.inviteEmail.value = "";
+      // The rooms feed delivers the updated member list; nothing else to do.
+    } catch (err) {
+      showError(el.chatError, err);
+    }
+  });
 
   el.roomForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -157,8 +193,9 @@
     const name = el.roomName.value.trim();
     if (!name) return;
     try {
-      const room = await cxi.rooms.create({ name });
+      const room = await cxi.rooms.create({ name, private: el.roomPrivate.checked });
       el.roomName.value = "";
+      el.roomPrivate.checked = false;
       if (!state.rooms.some((r) => r.id === room.id)) {
         state.rooms.push(room);
         state.rooms.sort(byName);
@@ -251,6 +288,7 @@
     state.messages = [];
     el.roomTitle.textContent = "Choose a room";
     el.composer.hidden = true;
+    el.roomInfo.hidden = true;
     renderRooms();
     renderMessages();
   };
@@ -264,6 +302,7 @@
     el.roomTitle.textContent = room ? room.name : "Room";
     el.roomsPanel.classList.remove("open");
     renderRooms();
+    renderRoomInfo();
 
     // Restore an unsent draft for this room. If you were interrupted, it waits.
     try { el.body.value = localStorage.getItem(draftKey(roomId)) || ""; } catch (_) {}

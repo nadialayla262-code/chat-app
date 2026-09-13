@@ -33,6 +33,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
+| `pb_hooks/` | Server-side routes, as code. Today: inviting people to private rooms. |
 | `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
@@ -46,6 +47,20 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 
 There is no build step, no package manager, no framework. You can read every
 line of the app in one sitting, and you can change it with any text editor.
+
+## Private rooms
+
+Tick "Private, invitation only" when you create a room. Only its members
+see it, read it, or get its live events. The owner invites people by email
+from the bar at the top of the room, and can remove them again. Nobody else
+can invite, nobody can add themselves, and the owner can never lock
+themselves out.
+
+Emails are never searchable from the page. The lookup happens on the
+server, only for the room's owner, and comes back as a name.
+
+Homei is an ordinary account. It sits in a private room only when you
+invite it: `homei@cxi.local`.
 
 ## Homei
 
@@ -98,6 +113,8 @@ directly against the API:
 - signed-out requests get empty lists and 404s, never data
 - you can only send as yourself
 - you can only edit or delete your own messages and rooms
+- a private room is invisible to non-members: no list, no read, no write, no events
+- membership changes only through the invite route, owner only, never by direct update
 - deleting a room removes its messages (cascade)
 - other people see your name and avatar, never your email
 
@@ -115,7 +132,7 @@ phone first, keyboard works everywhere, respects reduced-motion and dark mode.
 
 ```
 users     (built in)   id, name, avatar, email (hidden from others)
-rooms                  id, name (unique), topic, created_by -> users
+rooms                  id, name (unique), topic, private, created_by -> users, members -> users[]
 messages               id, room -> rooms, author -> users, body, created
 ```
 
@@ -126,7 +143,6 @@ messages               id, room -> rooms, author -> users, body, created
   identity layer does.
 - **Handi** can read the same `messages` collection to hold the thread.
 - **Homei on DeepSeek**, self-hosted, once that is the driver model.
-- Private rooms and invitations: one more relation and two more rules.
 - A Lovable surface pointed at this PocketBase, if you want to steer it
   visually.
 

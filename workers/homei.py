@@ -221,6 +221,10 @@ def main():
             time.sleep(max(POLL, 5))
             continue
 
+        # One answer per room per pass: if several lines arrived together
+        # (or a backlog appeared because Homei was just invited), reply once,
+        # to the thread as it stands, not once per line.
+        pending = {}
         for msg in fresh:
             cursor = max(cursor, msg["created"])
             rid = msg["room"]
@@ -229,10 +233,13 @@ def main():
                     rooms[rid] = spine.room(rid)
                 except Exception:
                     rooms[rid] = {}
-            if not is_for_me(msg, rooms[rid], my_id):
-                continue
+            if is_for_me(msg, rooms[rid], my_id):
+                pending[rid] = msg
 
+        for rid, msg in pending.items():
             history = spine.history(rid, HISTORY)
+            if history and history[-1]["author"] == my_id:
+                continue  # the last word in the room is already Homei's
             turns = build_turns(history, my_id)
             started = time.time()
             try:

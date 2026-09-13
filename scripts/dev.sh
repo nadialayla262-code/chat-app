@@ -33,4 +33,5 @@ exec "$BIN" serve \
   --http="127.0.0.1:${PB_PORT}" \
   --dir=./pb_data \
   --migrationsDir=./pb_migrations \
+  --hooksDir=./pb_hooks \
   --publicDir=./public

@@ -53,12 +53,22 @@
         </div>
         <ul id="room-list" class="room-list" aria-label="Rooms"></ul>
         <form id="room-form" class="room-form">
-          <input id="room-name" type="text" placeholder="New room name" maxlength="80" required />
-          <button type="submit" class="primary small">Create</button>
+          <div class="room-form-row">
+            <input id="room-name" type="text" placeholder="New room name" maxlength="80" required />
+            <button type="submit" class="primary small">Create</button>
+          </div>
+          <label class="check"><input id="room-private" type="checkbox" /> <span>Private, invitation only</span></label>
         </form>
       </aside>
 
       <main class="pane">
+        <div id="room-info" class="room-info" hidden>
+          <span class="members" id="members"></span>
+          <form id="invite-form" class="invite-form" hidden>
+            <input id="invite-email" type="email" placeholder="Invite by email" autocomplete="off" required />
+            <button type="submit" class="small">Invite</button>
+          </form>
+        </div>
         <div id="message-list" class="messages" aria-live="polite" aria-label="Messages">
           <p class="empty" id="empty-state">Pick a room on the left, or create one.</p>
         </div>
