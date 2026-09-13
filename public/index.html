@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>CXI Chat</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <noscript>This app needs JavaScript to run.</noscript>
+
+  <!-- Sign in / create account -->
+  <section id="auth" class="screen" hidden>
+    <div class="auth-card">
+      <h1>CXI Chat</h1>
+      <p class="lede">Your server. Your data. Your conversation.</p>
+
+      <form id="auth-form" novalidate>
+        <label class="field" id="name-field" hidden>
+          <span>Name</span>
+          <input id="auth-name" type="text" autocomplete="nickname" maxlength="80" />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input id="auth-email" type="email" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required />
+        </label>
+        <p class="hint" id="auth-hint">At least 8 characters.</p>
+        <button type="submit" class="primary" id="auth-submit">Sign in</button>
+      </form>
+
+      <button type="button" class="link" id="auth-toggle">New here? Create an account</button>
+      <p class="error" id="auth-error" role="alert" hidden></p>
+    </div>
+  </section>
+
+  <!-- Chat -->
+  <section id="chat" class="screen" hidden>
+    <header class="topbar">
+      <button type="button" class="icon" id="rooms-toggle" aria-label="Show rooms">☰</button>
+      <h2 id="room-title">Choose a room</h2>
+      <button type="button" class="link small" id="signout">Sign out</button>
+    </header>
+
+    <div class="layout">
+      <aside class="rooms" id="rooms-panel">
+        <div class="rooms-head">
+          <span class="you" id="you"></span>
+        </div>
+        <ul id="room-list" class="room-list" aria-label="Rooms"></ul>
+        <form id="room-form" class="room-form">
+          <input id="room-name" type="text" placeholder="New room name" maxlength="80" required />
+          <button type="submit" class="primary small">Create</button>
+        </form>
+      </aside>
+
+      <main class="pane">
+        <div id="message-list" class="messages" aria-live="polite" aria-label="Messages">
+          <p class="empty" id="empty-state">Pick a room on the left, or create one.</p>
+        </div>
+        <form id="composer" class="composer" hidden>
+          <textarea id="body" rows="2" placeholder="Write a message…" maxlength="4000" required></textarea>
+          <button type="submit" class="primary" id="send">Send</button>
+        </form>
+        <p class="error" id="chat-error" role="alert" hidden></p>
+      </main>
+    </div>
+  </section>
+
+  <script src="vendor/pocketbase.umd.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

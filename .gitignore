@@ -1,0 +1,8 @@
+# PocketBase runtime data (the database lives here — back it up, never commit it)
+pb_data/
+# Downloaded PocketBase binary
+bin/
+# OS / editor noise
+.DS_Store
+*.log
+node_modules/
