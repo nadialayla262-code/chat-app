@@ -357,7 +357,8 @@ corpus indexed and searched; both workers, including what happens while
 a model is slow; a backup restored and counted; Bates numbering; the page
 in two real browsers; start and stop; and the sign-up code on a second
 spine. Ends with `ALL GREEN`. Your database is never touched.
-`./tests/run.sh rules` runs one suite.
+`./tests/run.sh rules` runs one suite. The same command runs on GitHub
+for every pull request.
 
 ## Data model
 
@@ -381,5 +382,12 @@ documents, chunks                      the corpus with embeddings (locked)
 
 ## Licence
 
-MIT. See `LICENSE`. The vendored PocketBase SDK carries its own MIT licence
-in `public/vendor/`.
+GNU Affero General Public License v3.0. See `LICENSE`.
+
+Anyone may use, study, change and share this. Anyone who changes it and
+runs it for other people, including as a hosted service, must share their
+changes under the same terms. Nobody can take the method and close it back
+up. The copyright holder can still license it separately to a partner who
+needs different terms.
+
+The vendored PocketBase SDK in `public/vendor/` keeps its own MIT licence.

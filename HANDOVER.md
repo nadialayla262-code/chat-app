@@ -67,6 +67,13 @@ says what failed. Your real database is never touched.
    Start the worker, say its name in a room. Adjust
    `workers/homei.system.md` until it sounds right. Restart the worker.
 
+## The repository
+
+`main` is the branch to review into; work arrives by pull request. The
+licence is AGPL-3.0: open, and it stays open. One click is still yours:
+on GitHub, Settings → General → Default branch, choose `main`. The proxy
+this was built through is not allowed to change repository settings.
+
 ## Before the tunnel
 
 Set `CXI_SIGNUP_CODE` in the shell that starts the spine. Sign-up then

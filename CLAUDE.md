@@ -51,7 +51,8 @@ both before your first change.
 ./tests/run.sh          # all suites, throwaway spine on :8099, never touches ./pb_data
 ```
 
-Green or it does not ship. Browser and Bates suites skip themselves if
+Green or it does not ship. The same command runs in GitHub Actions on
+every pull request (`.github/workflows/tests.yml`). Browser and Bates suites skip themselves if
 Playwright or the PDF libraries are missing; say so in the commit if they
 were skipped. The Homei and Handi suites run against `tests/fake_embed.py`,
 so worker logic is tested; the real model is not. A last message containing
@@ -104,6 +105,11 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
   off and let a unique index enforce presence.
 - Worker log lines start with `[name]`. In `--json` mode print nothing
   else, or the caller's JSON parse grabs the log line.
+
+## Branches
+
+`main` is the branch to review into. Work happens on a branch and arrives
+in `main` by pull request. Never push to `main` directly.
 
 ## Commits
 

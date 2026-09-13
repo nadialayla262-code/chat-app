@@ -1,0 +1,35 @@
+# The nine suites, on every pull request and every push to main.
+# Same command a person runs: ./tests/run.sh. Nothing else.
+name: tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PDF libraries for the Bates suite
+        run: pip install pypdf reportlab pillow
+      - name: Playwright for the browser suite
+        run: npm install -g playwright && npx --yes playwright install --with-deps chromium
+      - name: PocketBase
+        run: |
+          PB_VERSION=0.40.4
+          mkdir -p bin
+          curl -fsSL -o bin/pb.zip "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip"
+          unzip -o -q bin/pb.zip pocketbase -d bin && chmod +x bin/pocketbase && rm bin/pb.zip
+          ./bin/pocketbase --version
+      - name: All suites
+        run: ./tests/run.sh
+      - name: Logs on failure
+        if: failure()
+        run: for f in tests/.tmp/*.log; do echo "== $f =="; tail -n 60 "$f"; done
