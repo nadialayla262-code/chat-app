@@ -9,3 +9,5 @@ node_modules/
 # Homei worker secrets and append-only log
 workers/.homei-password
 workers/log/
+__pycache__/
+*.pyc
