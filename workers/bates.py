@@ -47,8 +47,8 @@ try:
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
     from PIL import Image
-except ImportError as e:
-    print(f"[bates] missing library: {e.name}. Run:  pip3 install pypdf reportlab pillow", file=sys.stderr)
+except BaseException as e:  # ImportError, or a broken native package refusing to load
+    print(f"[bates] PDF libraries unavailable ({type(e).__name__}: {e}). Run:  pip3 install pypdf reportlab pillow", file=sys.stderr)
     sys.exit(2)
 
 TOOL_VERSION = "1"

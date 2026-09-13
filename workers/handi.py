@@ -8,6 +8,9 @@ Say "@handi" in a room and Handi posts the register for that room:
     Open promises: Bram said "I'll send the scan tonight".
 
 Say "@handi all" and it posts the register for every room it can see.
+Say "@handi find <words>" in a private room and it posts the best passages
+from the corpus, with document and Bates numbers. Needs the superuser
+variables so it can read the locked corpus; without them it says so.
 Deterministic first: the register is computed from the messages, not
 imagined. If a model is reachable, Handi adds three lines saying where the
 thread stands. If not, the register stands alone.
@@ -32,7 +35,7 @@ import re
 import sys
 import time
 
-from cxi_spine import Model, Spine, author_name, load_password, log_append, now_iso, say as _say
+from cxi_spine import Model, Spine, Superuser, author_name, load_password, log_append, now_iso, say as _say
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_FILE = os.path.join(HERE, "log", "handi.jsonl")
@@ -48,6 +51,8 @@ USE_MODEL = os.environ.get("CXI_HANDI_MODEL", "1") != "0"
 
 ADDRESSED = re.compile(r"(^|\W)@?handi(\W|$)", re.I)
 WANTS_ALL = re.compile(r"\bhandi\b\W*\ball\b", re.I)
+WANTS_FIND = re.compile(r"\bhandi\b\W*\b(find|search|zoek)\b\s*(.+)$", re.I | re.S)
+FIND_TOP = int(os.environ.get("CXI_HANDI_FIND_TOP", "3"))
 PROMISE = re.compile(
     r"\b(i'?ll|i will|i'?m going to|i shall|will (?:send|do|call|write|check|ask|post|book|file|chase)|let me|leave it with me|on it)\b",
     re.I,
@@ -127,16 +132,41 @@ def render(room_name, reg):
     return "\n".join(out)
 
 
+def find(corpus, embedder, words):
+    """Best passages for `words`, rendered for a room. corpus is a Superuser spine or None."""
+    if corpus is None:
+        return "Search is not switched on for me. Start me with CXI_SUPERUSER_EMAIL and CXI_SUPERUSER_PASSWORD set."
+    from search import search  # workers/search.py, same folder
+    hits = search(corpus, embedder, words, top=FIND_TOP, quiet=True)
+    if not hits:
+        return "Nothing indexed yet. Run workers/index.py first."
+    out = [f"Found for \"{words}\":"]
+    for h in hits:
+        head = h["document"] + (f"  [{h['bates']}]" if h["bates"] else "")
+        out.append(f"  · {head}")
+        out.append("    " + " ".join(h["text"].split())[:280])
+    return "\n".join(out)
+
+
 def main():
     with open(SYSTEM_FILE, encoding="utf-8") as f:
         system = f.read().strip()
     spine = Spine()
     model = Model(MODEL)
+    corpus = embedder = None
+    if os.environ.get("CXI_SUPERUSER_EMAIL") and os.environ.get("CXI_SUPERUSER_PASSWORD"):
+        try:
+            corpus = Superuser(); corpus.sign_in()
+            embedder = Model(os.environ.get("CXI_EMBED_MODEL", "qwen3-embedding:0.6b"))
+        except Exception as e:
+            say(f"corpus search off: {e}")
+            corpus = None
     spine.sign_in_or_up(NAME, EMAIL, load_password("CXI_HANDI_PASSWORD", PASSWORD_FILE), who="handi")
     my_id = spine.me["id"]
     WORKER_IDS.add(my_id)
     say(f"signed in as {spine.me.get('name')} ({EMAIL}) on {spine.base}")
-    say("say '@handi' in a room for its register, '@handi all' for every room")
+    say("say '@handi' in a room for its register, '@handi all' for every room"
+        + (", '@handi find <words>' in a private room to search the corpus" if corpus else ""))
 
     cursor = now_iso()
     rooms = {}
@@ -166,6 +196,24 @@ def main():
 
         for rid, (msg, want_all) in asks.items():
             started = time.time()
+            m = WANTS_FIND.search(msg["body"])
+            if m:
+                room = spine.room(rid) if rid not in rooms else rooms[rid]
+                rooms[rid] = room
+                if not room.get("private"):
+                    body = "I only search the corpus in a private room."
+                else:
+                    try:
+                        body = find(corpus, embedder, m.group(2).strip())
+                    except Exception as e:
+                        say(f"find failed: {e}")
+                        body = "Search failed. The reason is in my log."
+                posted = spine.send(rid, body)
+                cursor = max(cursor, posted["created"])
+                log_append(LOG_FILE, {"at": now_iso(), "room": room_name(rid), "room_id": rid, "find": m.group(2).strip(),
+                                      "trigger_message": msg["id"], "reply_message": posted["id"], "seconds": round(time.time() - started, 2)})
+                say(f"search posted in '{room_name(rid)}' for {author_name(msg)}")
+                continue
             targets = [r["id"] for r in spine.rooms()] if want_all else [rid]
             parts = []
             for tid in targets:

@@ -122,6 +122,12 @@ reachable it adds three lines saying where the thread stands and whose
 move it is. If not, the register stands alone. Lines from Homei or Handi
 never count as questions or promises.
 
+Say `@handi find signature added later` in a **private** room and it posts
+the best passages from the corpus with document names and Bates numbers.
+It never searches in an open room. For this it needs the superuser
+variables when it starts, so it can read the locked corpus; without them
+it says search is switched off.
+
 ```sh
 python3 workers/handi.py
 ```

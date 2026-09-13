@@ -36,15 +36,16 @@ if [ "$need_workers" = 1 ]; then
   # workers keep their generated passwords and caches next to themselves; point them at the temp folder
   cp workers/*.py workers/*.md "$TMP/workers/"
   ( cd "$TMP/workers" && CXI_HOMEI_POLL=0.5 "$PY" homei.py >"$TMP/homei.log" 2>&1 ) & PIDS+=($!)
-  ( cd "$TMP/workers" && CXI_HANDI_POLL=0.5 CXI_HANDI_MODEL=0 "$PY" handi.py >"$TMP/handi.log" 2>&1 ) & PIDS+=($!)
+  ( cd "$TMP/workers" && CXI_HANDI_POLL=0.5 CXI_HANDI_MODEL=0 CXI_EMBED_MODEL=fake-embed \
+      CXI_SUPERUSER_EMAIL=test@cxi.local CXI_SUPERUSER_PASSWORD=test-superuser-pass "$PY" handi.py >"$TMP/handi.log" 2>&1 ) & PIDS+=($!)
   sleep 2
 fi
 
 status=0
 run() { echo; echo "== $1 =="; shift; "$@" || status=1; }
 case "$want" in
-  all)      run rules node tests/rules.js; run workers node tests/workers.js; run register "$PY" tests/register.py
-            run corpus "$PY" tests/corpus.py; run bates "$PY" tests/bates.py; run browser node tests/browser.js ;;
+  all)      run rules node tests/rules.js; run register "$PY" tests/register.py; run corpus "$PY" tests/corpus.py
+            run workers node tests/workers.js; run bates "$PY" tests/bates.py; run browser node tests/browser.js ;;
   rules)    run rules node tests/rules.js ;;
   workers)  run workers node tests/workers.js ;;
   register) run register "$PY" tests/register.py ;;

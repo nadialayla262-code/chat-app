@@ -6,8 +6,8 @@ try:
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4, landscape
     from PIL import Image
-except ImportError as e:
-    print(f"bates: skipped ({e.name} not installed; pip3 install pypdf reportlab pillow)"); sys.exit(0)
+except BaseException as e:  # ImportError, or a broken native package refusing to load
+    print(f"bates: skipped (PDF libraries unavailable: {type(e).__name__}; pip3 install pypdf reportlab pillow)"); sys.exit(0)
 fails = 0
 def check(label, ok, detail=""):
     global fails

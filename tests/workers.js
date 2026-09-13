@@ -59,5 +59,18 @@ const waitFor = async (pb, roomId, name, ms = 8000) => {
   const all = (await from(me.pb, r3.id, "Handi")).pop().body;
   check("'all' covers this room", all.includes(`thread-${t}`));
   check("'all' skips a private room it is not in", !all.includes(`homei-private-${t}`) || false);
+
+  console.log("handi find");
+  await post(me, "@handi find signature added later different ink");
+  await sleep(2500);
+  const open = (await from(me.pb, r3.id, "Handi")).pop().body;
+  check("refuses to search in an open room", open.includes("only search the corpus in a private room"));
+  const v = await me.pb.collection("rooms").create({ name: `vault-${t}`, private: true, created_by: me.id, members: [me.id] });
+  await me.pb.send("/api/cxi/invite", { method: "POST", body: { room: v.id, email: "handi@cxi.local" } });
+  await me.pb.collection("messages").create({ room: v.id, author: me.id, body: "@handi find signature added later different ink" });
+  const found = await waitFor(me.pb, v.id, "Handi", 10000);
+  const fb = found[0]?.body || "";
+  if (fb.includes("Nothing indexed")) console.log("  skip  corpus not indexed in this run (run the full suite for the search check)");
+  else check("finds the passage in a private room, with document name", fb.includes("b-medical-note") && fb.includes("different ink"), fb.split("\n")[1]);
   done("workers");
 })().catch((e) => { console.error("ERR", e.response || e); process.exit(1); });

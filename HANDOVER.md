@@ -11,7 +11,7 @@ up. Nothing here needs Claude Code to run.
 | **The chat** | Your server, your data. Rooms, live messages, drafts that survive interruption. Phone first. | Working, tested in two browsers |
 | **Private rooms** | Invitation only. Non-members see nothing, get nothing, can't write. You invite by email, members can leave, you can never lock yourself out. | Working, tested |
 | **Homei** | Your chatbot, in the room, on your machine, through Ollama. The room history is its memory. Its rules are a text file. | Logic tested against a stand-in model. Not yet run with the real `qwen3:4b` |
-| **Handi in the room** | Say `@handi` and it posts who is waiting on whom, what is unanswered, what was promised. Counted, not imagined. | Working, tested |
+| **Handi in the room** | Say `@handi` and it posts who is waiting on whom, what is unanswered, what was promised. Counted, not imagined. `@handi find …` in a private room searches the corpus. | Working, tested |
 | **Handi on your mail** | Reads a Takeout export or your mailbox over IMAP and writes the register: organisations written to, times, who ever answered with a human word, which addresses bounced. | Working on a built mailbox. Not yet run on your real mail |
 | **The register in the spine** | Loads that register into your database, locked to you. Two public routes give counts only, and only for organisations you flag published. | Working, tested |
 | **Bates numbering** | Every page of every exhibit gets a permanent number. Ledger is append-only. Duplicates are named. Originals never touched. | Working, tested. Needs `pip3 install pypdf reportlab pillow` |
@@ -23,7 +23,7 @@ up. Nothing here needs Claude Code to run.
 ```sh
 ./scripts/dev.sh                 # terminal 1: the spine, http://127.0.0.1:8090
 python3 workers/homei.py         # terminal 2: Homei (needs Ollama running with qwen3:4b)
-python3 workers/handi.py         # terminal 3: Handi
+python3 workers/handi.py         # terminal 3: Handi (add CXI_SUPERUSER_EMAIL/PASSWORD to switch on '@handi find')
 ```
 
 First time: open http://127.0.0.1:8090/_/ and create the superuser. That
