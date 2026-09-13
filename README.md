@@ -69,7 +69,7 @@ anyone can reach it. Two lines close the door:
 
 ```sh
 export CXI_SIGNUP_CODE="a long phrase only your people know"
-./scripts/dev.sh
+./scripts/start.sh
 ```
 
 With that set, creating an account needs the code, entered in the
@@ -108,7 +108,7 @@ back, it still knows the thread, because the spine kept it.
 
 ```sh
 ollama pull qwen3:4b          # once, if it is not already there
-python3 workers/homei.py      # in a second terminal, next to dev.sh
+./scripts/start.sh            # starts Homei with the spine; or by hand: python3 workers/homei.py
 ```
 
 Homei creates its own account the first time it runs. It answers when a
@@ -169,11 +169,8 @@ It never searches in an open room. For this it needs the superuser
 variables when it starts, so it can read the locked corpus; without them
 it says search is switched off.
 
-```sh
-python3 workers/handi.py
-```
-
-Same settings pattern as Homei, prefixed `CXI_HANDI_`. Set
+`./scripts/start.sh` starts Handi with the spine; by hand it is
+`python3 workers/handi.py`. Same settings pattern as Homei, prefixed `CXI_HANDI_`. Set
 `CXI_HANDI_MODEL=0` to keep it purely deterministic.
 
 ### Handi on your mail
@@ -314,9 +311,10 @@ This is the part that matters more than the code.
 worker it is the `Spine` class. Everything else talks to those. Swap the
 back end, change one file. Never depend on a layer that can be taken away.
 
-**The schema is versioned, not clicked.** Collections and access rules live in
-`pb_migrations/1757800000_init_chat.js`. Anyone can read exactly who may do
-what, and reproduce the setup from nothing. No admin panel archaeology.
+**The schema is versioned, not clicked.** Collections and access rules live
+in `pb_migrations/`, one file per change, each with a rollback. Anyone can
+read exactly who may do what, and reproduce the setup from nothing. No
+admin panel archaeology.
 
 **Rules are enforced on the server, not in the page.** The frontend hides a
 delete button it knows you cannot use, but the server is what refuses. Tested
@@ -329,6 +327,8 @@ directly against the API:
 - membership changes only through the invite route, owner only, never by direct update
 - deleting a room removes its messages (cascade)
 - other people see your name and avatar, never your email
+- the register and the corpus are locked: superuser and server routes only
+- your own data comes back with one call; a sign-up code closes the door
 
 **Nothing is renumbered, nothing is overwritten.** The mail register
 upserts in place, the Bates ledger only appends, and every worker's log is
@@ -351,21 +351,23 @@ phone first, keyboard works everywhere, respects reduced-motion and dark mode.
 ```
 
 Starts a throwaway spine on another port, a stand-in model, Homei and
-Handi, and runs every suite: access rules straight against the API, both
-workers, the mail register end to end into the spine, the corpus indexed
-and searched, Bates numbering, and the page in two real browsers, a backup restored and counted, and the
-sign-up code on a second spine. Ends with `ALL GREEN`. Your database is
-never touched. `./tests/run.sh rules` runs one suite.
+Handi, and runs nine suites: access rules straight against the API; the
+mail register through both Takeout and IMAP and into the spine; the
+corpus indexed and searched; both workers, including what happens while
+a model is slow; a backup restored and counted; Bates numbering; the page
+in two real browsers; start and stop; and the sign-up code on a second
+spine. Ends with `ALL GREEN`. Your database is never touched.
+`./tests/run.sh rules` runs one suite.
 
 ## Data model
 
 ```
 users     (built in)   id, name, avatar, email (hidden from others)
 rooms                  id, name (unique), topic, private, created_by -> users, members -> users[]
+messages               id, room -> rooms, author -> users, body, created
 memories               person -> users, author -> users (the seat), text
 contacts, threads, dead_addresses      the mail register (locked)
 documents, chunks                      the corpus with embeddings (locked)
-messages               id, room -> rooms, author -> users, body, created
 ```
 
 ## Where this goes next

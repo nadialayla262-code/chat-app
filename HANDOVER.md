@@ -45,8 +45,9 @@ those addresses.
 ```
 
 Starts a throwaway spine on another port, a stand-in model, both workers,
-and runs every suite: rules, workers, mail register, Bates, browser. Ends
-with `ALL GREEN` or says what failed. Your real database is never touched.
+and runs nine suites: rules, mail register, corpus, workers, backup,
+Bates, browser, start and stop, sign-up code. Ends with `ALL GREEN` or
+says what failed. Your real database is never touched.
 
 ## Run it on your real data, in this order
 
@@ -89,6 +90,8 @@ itself carries no data.
 ## What is not done
 
 - Homei on the real model has not been heard yet.
+- The backup has not yet run against your real `pb_data/`. The first run
+  is the one that matters; read the RESTORE VERIFIED line.
 - Handi on mail has not seen a real mailbox. Expect the auto-reply and
   bounce patterns to need one or two additions after the first real run.
   They are two regular expressions at the top of `workers/handi_mail.py`.
