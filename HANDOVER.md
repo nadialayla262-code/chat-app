@@ -60,6 +60,11 @@ with `ALL GREEN` or says what failed. Your real database is never touched.
    Start the worker, say its name in a room. Adjust
    `workers/homei.system.md` until it sounds right. Restart the worker.
 
+## Before the tunnel
+
+Set `CXI_SIGNUP_CODE` in the shell that starts the spine. Sign-up then
+needs the code. Do this before `cloudflared` runs, not after.
+
 ## Back up
 
 `pb_data/` is the whole state of the chat and the register. It goes on the

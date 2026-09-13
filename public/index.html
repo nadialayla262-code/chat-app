@@ -30,6 +30,10 @@
           <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required />
         </label>
         <p class="hint" id="auth-hint">At least 8 characters.</p>
+        <label class="field" id="code-field" hidden>
+          <span>Sign-up code <small class="soft">(only if this server asks for one)</small></span>
+          <input id="auth-code" type="text" autocomplete="off" />
+        </label>
         <button type="submit" class="primary" id="auth-submit">Sign in</button>
       </form>
 

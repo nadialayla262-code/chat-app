@@ -2,7 +2,7 @@
 # Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
 #
 #   ./tests/run.sh            # all
-#   ./tests/run.sh rules      # one of: rules workers browser register corpus bates
+#   ./tests/run.sh rules      # one of: rules workers browser register corpus bates signup
 #
 # Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
 # Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
@@ -52,7 +52,22 @@ case "$want" in
   corpus)   run corpus "$PY" tests/corpus.py ;;
   bates)    run bates "$PY" tests/bates.py ;;
   browser)  run browser node tests/browser.js ;;
+  signup)   : ;;
   *) echo "unknown suite: $want"; status=2 ;;
 esac
+# The sign-up code needs a spine started with the variable set: a second, short-lived one.
+if [ "$want" = all ] || [ "$want" = signup ]; then
+  echo; echo "== signup code =="
+  CODE_PORT=$((PORT + 1))
+  mkdir -p "$TMP/pb_code"
+  ./bin/pocketbase migrate up --dir="$TMP/pb_code" --migrationsDir=./pb_migrations >/dev/null 2>&1
+  ./bin/pocketbase superuser upsert test@cxi.local test-superuser-pass --dir="$TMP/pb_code" >/dev/null 2>&1
+  CXI_SIGNUP_CODE=open-sesame-test ./bin/pocketbase serve --http="127.0.0.1:$CODE_PORT" --dir="$TMP/pb_code" \
+    --migrationsDir=./pb_migrations --hooksDir=./pb_hooks --publicDir=./public >"$TMP/pb_code.log" 2>&1 &
+  PIDS+=($!)
+  for i in $(seq 1 30); do curl -sf "http://127.0.0.1:$CODE_PORT/api/health" >/dev/null && break; sleep 0.3; done
+  CXI_TEST_URL="http://127.0.0.1:$CODE_PORT" node tests/signup_code.js || status=1
+fi
+
 echo; [ "$status" = 0 ] && echo "ALL GREEN" || echo "SOMETHING FAILED (logs in tests/.tmp)"
 exit $status

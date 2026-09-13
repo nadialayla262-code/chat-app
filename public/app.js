@@ -14,6 +14,8 @@
     authForm: $("auth-form"),
     nameField: $("name-field"),
     name: $("auth-name"),
+    codeField: $("code-field"),
+    code: $("auth-code"),
     email: $("auth-email"),
     password: $("auth-password"),
     authHint: $("auth-hint"),
@@ -80,6 +82,7 @@
     state.mode = mode;
     const signup = mode === "signup";
     el.nameField.hidden = !signup;
+    el.codeField.hidden = !signup;
     el.authSubmit.textContent = signup ? "Create account" : "Sign in";
     el.authToggle.textContent = signup ? "Have an account? Sign in" : "New here? Create an account";
     el.authHint.hidden = !signup;
@@ -98,7 +101,7 @@
     try {
       if (state.mode === "signup") {
         const name = el.name.value.trim() || email.split("@")[0];
-        await cxi.auth.signUp({ name, email, password });
+        await cxi.auth.signUp({ name, email, password, code: el.code.value.trim() });
       } else {
         await cxi.auth.signIn({ email, password });
       }

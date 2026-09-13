@@ -58,8 +58,11 @@
       /** Current user or null. */
       me: () => asUser(pb.authStore.record),
       isSignedIn: () => pb.authStore.isValid,
-      async signUp({ name, email, password }) {
-        await pb.collection("users").create({ name, email, password, passwordConfirm: password });
+      /** `code` is only needed when the server was started with CXI_SIGNUP_CODE. */
+      async signUp({ name, email, password, code = "" }) {
+        const body = { name, email, password, passwordConfirm: password };
+        if (code) body.signup_code = code;
+        await pb.collection("users").create(body);
         return cxi.auth.signIn({ email, password });
       },
       async signIn({ email, password }) {

@@ -22,6 +22,17 @@ cloudflared tunnel create cxi-spine
 cloudflared tunnel route dns cxi-spine spine.<your-domain>
 ```
 
+Before the tunnel carries a single request, close sign-up:
+
+```sh
+export CXI_SIGNUP_CODE="a long phrase only your people know"
+```
+
+Set it in the same shell that runs `./scripts/dev.sh`. From then on,
+creating an account needs that code in the sign-up form. Without this,
+the first stranger to find the address can make an account and read every
+open room.
+
 Then a config file at `~/.cloudflared/config.yml`:
 
 ```yaml
