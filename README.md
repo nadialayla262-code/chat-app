@@ -33,8 +33,13 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
-| `public/` | The whole frontend: one HTML page, one stylesheet, one script. |
+| `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
+| `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
+| `public/app.js` | The page. Talks to `cxi`, never to the back end. |
 | `public/vendor/` | The PocketBase JavaScript SDK, vendored so nothing is fetched from a CDN. |
+| `workers/homei.py` | Homei, the AI seat in the room. Standard-library Python, talks to Ollama. |
+| `workers/homei.system.md` | Homei's rules. Plain text, edit it freely. |
+| `workers/log/` | Append-only record of every answer Homei gave. Gitignored. |
 | `scripts/dev.sh` | Downloads PocketBase and serves everything. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
 | `bin/` | The PocketBase binary. Gitignored. |
@@ -42,9 +47,45 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 There is no build step, no package manager, no framework. You can read every
 line of the app in one sitting, and you can change it with any text editor.
 
+## Homei
+
+Homei is your chatbot with a seat in the room. It runs on your machine,
+through Ollama, and the room history is its memory: close everything, come
+back, it still knows the thread, because the spine kept it.
+
+```sh
+ollama pull qwen3:4b          # once, if it is not already there
+python3 workers/homei.py      # in a second terminal, next to dev.sh
+```
+
+Homei creates its own account the first time it runs. It answers when a
+message says its name, and answers everything in any room whose name starts
+with `homei`. Say nothing to it, it says nothing to you.
+
+Its rules live in `workers/homei.system.md`. Change the file, restart the
+worker. No code involved. Every reply it gives is logged with the model,
+the rules version, and how long it took, so you can always say which
+Homei said what.
+
+Settings are environment variables, never edits:
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `CXI_CHAT_MODEL` | `qwen3:4b` | Which Ollama model answers |
+| `CXI_OLLAMA_HOST` | `http://127.0.0.1:11434` | Where Ollama is |
+| `CXI_PB_URL` | `http://127.0.0.1:8090` | Where the spine is |
+| `CXI_HOMEI_HISTORY` | `30` | How many messages it reads back |
+
+Swapping the model for DeepSeek later means changing one class in
+`workers/homei.py`, the one marked `Model`. Nothing else moves.
+
 ## The method
 
 This is the part that matters more than the code.
+
+**One file knows the back end.** In the page it is `public/cxi.js`. In the
+worker it is the `Spine` class. Everything else talks to those. Swap the
+back end, change one file. Never depend on a layer that can be taken away.
 
 **The schema is versioned, not clicked.** Collections and access rules live in
 `pb_migrations/1757800000_init_chat.js`. Anyone can read exactly who may do
@@ -84,6 +125,7 @@ messages               id, room -> rooms, author -> users, body, created
   email and password auth; the collection rules do not change when the
   identity layer does.
 - **Handi** can read the same `messages` collection to hold the thread.
+- **Homei on DeepSeek**, self-hosted, once that is the driver model.
 - Private rooms and invitations: one more relation and two more rules.
 - A Lovable surface pointed at this PocketBase, if you want to steer it
   visually.

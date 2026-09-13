@@ -1,13 +1,10 @@
-/* CXI Chat — thin client over PocketBase.
+/* CXI Chat — the page.
  *
- * No framework, no build step. Open the page, it talks to the PocketBase
- * that served it. Everything here is readable in one sitting on purpose.
+ * No framework, no build step. This file knows nothing about the back end;
+ * it talks to `cxi` (cxi.js), which is the one file that does.
  */
 (() => {
   "use strict";
-
-  const pb = new PocketBase(window.location.origin);
-  pb.autoCancellation(false);
 
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
@@ -45,51 +42,27 @@
     rooms: [],
     roomId: null,
     messages: [],
-    unsubMessages: null,
-    unsubRooms: null,
+    unwatchMessages: null,
+    unwatchRooms: null,
   };
 
   // ---------- Helpers ----------
-  const showError = (node, err) => {
-    let text = "Something went wrong.";
-    if (err && err.response && err.response.data) {
-      // PocketBase field errors: { field: { message } }
-      const fields = Object.entries(err.response.data)
-        .map(([k, v]) => `${k}: ${v.message}`)
-        .join(" ");
-      text = fields || err.response.message || err.message;
-    } else if (err && err.message) {
-      text = err.message;
-    }
-    node.textContent = text;
-    node.hidden = false;
-  };
+  const showError = (node, err) => { node.textContent = cxi.explain(err); node.hidden = false; };
   const clearError = (node) => { node.hidden = true; node.textContent = ""; };
+  const me = () => cxi.auth.me() || {};
 
   const fmtTime = (iso) => {
     const d = new Date(iso);
-    const today = new Date();
-    const sameDay = d.toDateString() === today.toDateString();
+    const sameDay = d.toDateString() === new Date().toDateString();
     const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     return sameDay ? time : `${d.toLocaleDateString()} ${time}`;
   };
-
-  const authorName = (m) => {
-    const a = m.expand && m.expand.author;
-    if (a && a.name) return a.name;
-    if (m.author === pb.authStore.record?.id) return me().name || "you";
-    return "someone";
-  };
-  const me = () => pb.authStore.record || {};
-
+  const authorName = (m) => m.author_name || (m.author === me().id ? (me().name || "you") : "someone");
+  const byName = (a, b) => a.name.localeCompare(b.name);
   const draftKey = (roomId) => `cxi-chat:draft:${roomId}`;
 
   // ---------- Screens ----------
-  const showAuth = () => {
-    el.chat.hidden = true;
-    el.auth.hidden = false;
-    el.email.focus();
-  };
+  const showAuth = () => { el.chat.hidden = true; el.auth.hidden = false; el.email.focus(); };
   const showChat = () => {
     el.auth.hidden = true;
     el.chat.hidden = false;
@@ -108,9 +81,7 @@
     clearError(el.authError);
   };
 
-  el.authToggle.addEventListener("click", () => {
-    setMode(state.mode === "signin" ? "signup" : "signin");
-  });
+  el.authToggle.addEventListener("click", () => setMode(state.mode === "signin" ? "signup" : "signin"));
 
   el.authForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -121,11 +92,10 @@
     try {
       if (state.mode === "signup") {
         const name = el.name.value.trim() || email.split("@")[0];
-        await pb.collection("users").create({
-          name, email, password, passwordConfirm: password,
-        });
+        await cxi.auth.signUp({ name, email, password });
+      } else {
+        await cxi.auth.signIn({ email, password });
       }
-      await pb.collection("users").authWithPassword(email, password);
       el.password.value = "";
       await enterChat();
     } catch (err) {
@@ -137,8 +107,8 @@
 
   el.signout.addEventListener("click", async () => {
     await leaveRoom();
-    if (state.unsubRooms) { state.unsubRooms(); state.unsubRooms = null; }
-    pb.authStore.clear();
+    if (state.unwatchRooms) { state.unwatchRooms(); state.unwatchRooms = null; }
+    cxi.auth.signOut();
     state.rooms = [];
     el.roomList.innerHTML = "";
     showAuth();
@@ -161,22 +131,22 @@
   };
 
   const loadRooms = async () => {
-    state.rooms = await pb.collection("rooms").getFullList({ sort: "name" });
+    state.rooms = await cxi.rooms.list();
     renderRooms();
   };
 
   const watchRooms = async () => {
-    state.unsubRooms = await pb.collection("rooms").subscribe("*", (e) => {
-      const i = state.rooms.findIndex((r) => r.id === e.record.id);
-      if (e.action === "delete") {
+    state.unwatchRooms = await cxi.rooms.watch(({ action, room }) => {
+      const i = state.rooms.findIndex((r) => r.id === room.id);
+      if (action === "delete") {
         if (i >= 0) state.rooms.splice(i, 1);
-        if (state.roomId === e.record.id) leaveRoom();
+        if (state.roomId === room.id) leaveRoom();
       } else if (i >= 0) {
-        state.rooms[i] = e.record;
+        state.rooms[i] = room;
       } else {
-        state.rooms.push(e.record);
+        state.rooms.push(room);
       }
-      state.rooms.sort((a, b) => a.name.localeCompare(b.name));
+      state.rooms.sort(byName);
       renderRooms();
     });
   };
@@ -187,11 +157,11 @@
     const name = el.roomName.value.trim();
     if (!name) return;
     try {
-      const room = await pb.collection("rooms").create({ name, created_by: me().id });
+      const room = await cxi.rooms.create({ name });
       el.roomName.value = "";
       if (!state.rooms.some((r) => r.id === room.id)) {
         state.rooms.push(room);
-        state.rooms.sort((a, b) => a.name.localeCompare(b.name));
+        state.rooms.sort(byName);
       }
       await openRoom(room.id);
     } catch (err) {
@@ -212,8 +182,9 @@
 
   // ---------- Messages ----------
   const renderMessage = (m) => {
+    const mine = m.author === me().id;
     const div = document.createElement("div");
-    div.className = "msg" + (m.author === me().id ? " mine" : "");
+    div.className = "msg" + (mine ? " mine" : "");
     div.dataset.id = m.id;
 
     const meta = document.createElement("div");
@@ -226,14 +197,14 @@
     when.textContent = fmtTime(m.created);
     meta.append(who, when);
 
-    if (m.author === me().id) {
+    if (mine) {
       const del = document.createElement("button");
       del.type = "button";
       del.className = "del";
       del.textContent = "delete";
       del.setAttribute("aria-label", "Delete this message");
       del.addEventListener("click", async () => {
-        try { await pb.collection("messages").delete(m.id); }
+        try { await cxi.messages.remove(m.id); }
         catch (err) { showError(el.chatError, err); }
       });
       meta.appendChild(del);
@@ -250,13 +221,13 @@
   const renderMessages = () => {
     el.messageList.innerHTML = "";
     if (!state.roomId) {
-      el.messageList.appendChild(el.emptyState);
       el.emptyState.textContent = "Pick a room on the left, or create one.";
+      el.messageList.appendChild(el.emptyState);
       return;
     }
     if (state.messages.length === 0) {
-      el.messageList.appendChild(el.emptyState);
       el.emptyState.textContent = "No messages yet. Say something.";
+      el.messageList.appendChild(el.emptyState);
       return;
     }
     for (const m of state.messages) el.messageList.appendChild(renderMessage(m));
@@ -265,7 +236,7 @@
 
   const upsertMessage = (m) => {
     const i = state.messages.findIndex((x) => x.id === m.id);
-    if (i >= 0) state.messages[i] = { ...state.messages[i], ...m, expand: m.expand || state.messages[i].expand };
+    if (i >= 0) state.messages[i] = { ...state.messages[i], ...m, author_name: m.author_name || state.messages[i].author_name };
     else state.messages.push(m);
     renderMessages();
   };
@@ -275,7 +246,7 @@
   };
 
   const leaveRoom = async () => {
-    if (state.unsubMessages) { state.unsubMessages(); state.unsubMessages = null; }
+    if (state.unwatchMessages) { state.unwatchMessages(); state.unwatchMessages = null; }
     state.roomId = null;
     state.messages = [];
     el.roomTitle.textContent = "Choose a room";
@@ -299,19 +270,12 @@
     el.composer.hidden = false;
 
     try {
-      const page = await pb.collection("messages").getList(1, 100, {
-        filter: `room = "${roomId}"`,
-        sort: "-created",
-        expand: "author",
-      });
-      state.messages = page.items.reverse();
+      state.messages = await cxi.messages.history(roomId, 100);
       renderMessages();
-
-      state.unsubMessages = await pb.collection("messages").subscribe("*", (e) => {
-        if (e.record.room !== state.roomId) return;
-        if (e.action === "delete") removeMessage(e.record.id);
-        else upsertMessage(e.record);
-      }, { filter: `room = "${roomId}"`, expand: "author" });
+      state.unwatchMessages = await cxi.messages.watch(roomId, ({ action, message }) => {
+        if (action === "delete") removeMessage(message.id);
+        else upsertMessage(message);
+      });
     } catch (err) {
       showError(el.chatError, err);
     }
@@ -336,13 +300,10 @@
     if (!body || !state.roomId) return;
     el.send.disabled = true;
     try {
-      const rec = await pb.collection("messages").create(
-        { room: state.roomId, author: me().id, body },
-        { expand: "author" },
-      );
+      const sent = await cxi.messages.send(state.roomId, body);
       el.body.value = "";
       try { localStorage.removeItem(draftKey(state.roomId)); } catch (_) {}
-      upsertMessage(rec); // realtime will also deliver it; upsert dedupes by id
+      upsertMessage(sent); // the live feed also delivers it; upsert dedupes by id
     } catch (err) {
       showError(el.chatError, err);
     } finally {
@@ -362,21 +323,11 @@
     }
   };
 
-  pb.authStore.onChange(() => {
-    if (!pb.authStore.isValid && !el.chat.hidden) showAuth();
-  });
+  cxi.auth.onSignedOut(() => { if (!el.chat.hidden) showAuth(); });
 
   (async () => {
     setMode("signin");
-    if (pb.authStore.isValid) {
-      try {
-        await pb.collection("users").authRefresh();
-        await enterChat();
-        return;
-      } catch (_) {
-        pb.authStore.clear();
-      }
-    }
+    if (await cxi.auth.resume()) { await enterChat(); return; }
     showAuth();
   })();
 })();
