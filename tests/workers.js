@@ -38,8 +38,29 @@ const waitFor = async (pb, roomId, name, ms = 8000) => {
   const pr = await waitFor(me.pb, p.id, "Homei");
   check("answers once after invite, not once per backlog line", pr.length === 1);
 
-  console.log("handi");
   const other = await person("Bram");
+  console.log("homei memory");
+  const m1 = await me.pb.collection("rooms").create({ name: `homei-mem-${t}`, created_by: me.id });
+  await me.pb.collection("messages").create({ room: m1.id, author: me.id, body: "homei, remember my cat is called Garfield." });
+  const kept = await waitFor(me.pb, m1.id, "Homei");
+  check("remember is acknowledged", kept[0]?.body === "Kept: my cat is called Garfield", kept[0]?.body);
+  const mine = await me.pb.collection("memories").getFullList();
+  check("the person can read their own memory", mine.length === 1 && mine[0].text === "my cat is called Garfield");
+  check("another person cannot", (await other.pb.collection("memories").getFullList()).length === 0);
+  const m2 = await me.pb.collection("rooms").create({ name: `homei-other-${t}`, created_by: me.id });
+  await me.pb.collection("messages").create({ room: m2.id, author: me.id, body: "what is my cat called?" });
+  const recall = await waitFor(me.pb, m2.id, "Homei");
+  check("memory carried into another room", (recall[0]?.body || "").includes("remembers: my cat is called Garfield"), recall[0]?.body);
+  await me.pb.collection("messages").create({ room: m2.id, author: me.id, body: "homei, what do you remember?" });
+  await sleep(2500);
+  const listed = (await from(me.pb, m2.id, "Homei")).pop().body;
+  check("recall lists it", listed.includes("- my cat is called Garfield"));
+  await me.pb.collection("messages").create({ room: m2.id, author: me.id, body: "homei, forget garfield" });
+  await sleep(2500);
+  const forgot = (await from(me.pb, m2.id, "Homei")).pop().body;
+  check("forget removes it", forgot.startsWith("Forgotten:") && (await me.pb.collection("memories").getFullList()).length === 0, forgot);
+
+  console.log("handi");
   const r3 = await me.pb.collection("rooms").create({ name: `thread-${t}`, created_by: me.id });
   const post = async (who, body) => { await who.pb.collection("messages").create({ room: r3.id, author: who.id, body }); await sleep(150); };
   await post(me, "Did the letter go out?");

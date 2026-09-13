@@ -7,7 +7,15 @@ Python 3, standard library only. Nothing leaves the machine.
     python3 workers/homei.py
 
 Homei answers when a message says its name, or in any room whose name starts
-with "homei". The room history is its memory; the spine keeps it.
+with "homei". The room history is its memory within a room; the spine keeps
+it. Across rooms:
+
+    @homei remember my cat is called Garfield      kept, for you, in every room
+    @homei forget Garfield                         removed
+    @homei what do you remember?                   listed
+
+Memories belong to the person they are about. You can see and delete your
+own in the spine; nobody else can.
 
 Settings are environment variables, never edits to this file:
 
@@ -28,7 +36,7 @@ import re
 import sys
 import time
 
-from cxi_spine import Model, Spine, author_name, load_password, log_append, now_iso, say as _say
+from cxi_spine import Model, Spine, author_name, load_password, log_append, now_iso, q, say as _say
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_FILE = os.path.join(HERE, "log", "homei.jsonl")
@@ -43,6 +51,9 @@ POLL = float(os.environ.get("CXI_HOMEI_POLL", "2"))
 PROMPT_VERSION = "1"
 
 ADDRESSED = re.compile(r"(^|\W)@?homei(\W|$)", re.I)
+REMEMBER = re.compile(r"\bhomei\b[,:]?\s*(?:please\s+)?remember(?:\s+that)?\s+(.+)$", re.I | re.S)
+FORGET = re.compile(r"\bhomei\b[,:]?\s*(?:please\s+)?forget(?:\s+about)?\s+(.+)$", re.I | re.S)
+RECALL = re.compile(r"\bhomei\b[,:]?\s*what do you remember", re.I)
 
 
 def say(msg):
@@ -55,6 +66,52 @@ def is_for_me(msg, room, my_id):
     if room and room.get("name", "").lower().startswith("homei"):
         return True
     return bool(ADDRESSED.search(msg["body"]))
+
+
+def memories_for(spine, person_ids):
+    """{person_id: [text, ...]} for the people in the room, from the spine."""
+    out = {}
+    for pid in person_ids:
+        rows = spine.list_all("memories", f"person = {q(pid)}", fields="id,text", sort="created")
+        out[pid] = [r["text"] for r in rows]
+    return out
+
+
+def memory_block(history, mem):
+    """The remembered facts about the people in this thread, for the system prompt."""
+    names = {}
+    for m in history:
+        names[m["author"]] = author_name(m)
+    lines = []
+    for pid, facts in mem.items():
+        if facts:
+            lines.append(f"About {names.get(pid, 'someone')}:")
+            lines += [f"- {f}" for f in facts]
+    if not lines:
+        return ""
+    return "\n\nWhat you remember (told to you earlier; use it, never recite it unasked):\n" + "\n".join(lines)
+
+
+def handle_memory(spine, msg, my_id):
+    """remember / forget / recall. Returns a reply, or None if the message is none of those."""
+    body, pid = msg["body"], msg["author"]
+    m = REMEMBER.search(body)
+    if m:
+        text = m.group(1).strip().rstrip(".")
+        spine.create("memories", {"person": pid, "author": my_id, "text": text})
+        return f"Kept: {text}"
+    m = FORGET.search(body)
+    if m:
+        needle = m.group(1).strip().rstrip(".").lower()
+        gone = []
+        for r in list(spine.list_all("memories", f"person = {q(pid)}", fields="id,text")):
+            if needle in r["text"].lower():
+                spine.delete("memories", r["id"]); gone.append(r["text"])
+        return ("Forgotten: " + "; ".join(gone)) if gone else f"I had nothing about \"{needle}\"."
+    if RECALL.search(body):
+        facts = [r["text"] for r in spine.list_all("memories", f"person = {q(pid)}", fields="text", sort="created")]
+        return ("What I remember about you:\n" + "\n".join(f"- {f}" for f in facts)) if facts else "Nothing yet. Tell me: homei, remember …"
+    return None
 
 
 def build_turns(history, my_id):
@@ -107,13 +164,21 @@ def main():
                 pending[rid] = msg
 
         for rid, msg in pending.items():
+            started = time.time()
+            direct = handle_memory(spine, msg, my_id)
+            if direct is not None:
+                posted = spine.send(rid, direct)
+                cursor = max(cursor, posted["created"])
+                say(f"memory: {direct.splitlines()[0][:60]}")
+                continue
             history = spine.history(rid, HISTORY)
             if history and history[-1]["author"] == my_id:
                 continue  # the last word in the room is already Homei's
             turns = build_turns(history, my_id)
-            started = time.time()
+            people = {m["author"] for m in history if m["author"] != my_id}
+            prompt = system + memory_block(history, memories_for(spine, people))
             try:
-                reply = model.ask(system, turns)
+                reply = model.ask(prompt, turns)
                 if model_down:
                     say("model is back")
                     model_down = False

@@ -102,6 +102,18 @@ Homei creates its own account the first time it runs. It answers when a
 message says its name, and answers everything in any room whose name starts
 with `homei`. Say nothing to it, it says nothing to you.
 
+Its memory crosses rooms too:
+
+```
+homei, remember my cat is called Garfield     kept, for you, in every room
+homei, what do you remember?                  listed
+homei, forget garfield                        removed
+```
+
+A memory belongs to the person it is about. You can read and delete your
+own in the spine; nobody else can see them, and Homei uses them without
+reciting them.
+
 Its rules live in `workers/homei.system.md`. Change the file, restart the
 worker. No code involved. Every reply it gives is logged with the model,
 the rules version, and how long it took, so you can always say which
@@ -318,6 +330,7 @@ never touched. `./tests/run.sh rules` runs one suite.
 ```
 users     (built in)   id, name, avatar, email (hidden from others)
 rooms                  id, name (unique), topic, private, created_by -> users, members -> users[]
+memories               person -> users, author -> users (the seat), text
 contacts, threads, dead_addresses      the mail register (locked)
 documents, chunks                      the corpus with embeddings (locked)
 messages               id, room -> rooms, author -> users, body, created

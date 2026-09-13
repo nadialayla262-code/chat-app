@@ -20,7 +20,12 @@ class H(BaseHTTPRequestHandler):
             out = {"model": body["model"], "embeddings": [embed(t) for t in inp]}
         else:
             msgs = body["messages"]
-            out = {"message": {"role": "assistant", "content": f"<think>hmm</think>[{body['model']}|{len(msgs)} msgs] You said: {msgs[-1]['content']}"}}
+            system = msgs[0]["content"] if msgs and msgs[0]["role"] == "system" else ""
+            remembered = ""
+            if "What you remember" in system:
+                facts = [l[2:] for l in system.split("What you remember", 1)[1].splitlines() if l.startswith("- ")]
+                remembered = f" (remembers: {'; '.join(facts)})"
+            out = {"message": {"role": "assistant", "content": f"<think>hmm</think>[{body['model']}|{len(msgs)} msgs] You said: {msgs[-1]['content']}{remembered}"}}
         data = json.dumps(out).encode()
         self.send_response(200); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
