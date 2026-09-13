@@ -381,5 +381,12 @@ documents, chunks                      the corpus with embeddings (locked)
 
 ## Licence
 
-MIT. See `LICENSE`. The vendored PocketBase SDK carries its own MIT licence
-in `public/vendor/`.
+GNU Affero General Public License v3.0. See `LICENSE`.
+
+Anyone may use, study, change and share this. Anyone who changes it and
+runs it for other people, including as a hosted service, must share their
+changes under the same terms. Nobody can take the method and close it back
+up. The copyright holder can still license it separately to a partner who
+needs different terms.
+
+The vendored PocketBase SDK in `public/vendor/` keeps its own MIT licence.
