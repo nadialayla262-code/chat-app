@@ -186,7 +186,7 @@ Non-response is the data point.
 # from a Google Takeout export (Mail -> .mbox), nothing leaves the Mac
 python3 workers/handi_mail.py --mbox ~/Downloads/Takeout/Mail/"All mail Including Spam and Trash.mbox"
 
-# or straight from the mailbox over IMAP, with an app password
+# or straight from the mailbox over IMAP, with an app password (Google account -> Security -> App passwords)
 CXI_IMAP_USER=you@gmail.com CXI_IMAP_PASSWORD=xxxx-xxxx-xxxx-xxxx python3 workers/handi_mail.py --imap
 ```
 
@@ -258,8 +258,8 @@ CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
   its Bates range, so a search result names the exhibit.
 - Search keeps a small binary cache of vectors in `workers/.vectors/` and
   refreshes it from the spine each run, so a query costs one small pull.
-  With numpy installed, scoring is instant; without it, the same answer,
-  slower.
+  With numpy installed (`pip3 install numpy`, optional), scoring is
+  instant; without it, the same answer, slower.
 - A chunk embedded at a different dimension is never scored. A different
   model is a different index.
 

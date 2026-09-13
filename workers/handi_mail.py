@@ -21,6 +21,8 @@ Settings, environment variables only:
 
     CXI_MY_EMAILS     comma-separated addresses that are you (else inferred: the most frequent sender)
     CXI_IMAP_HOST     imap.gmail.com
+    CXI_IMAP_PORT     993
+    CXI_IMAP_SSL      1            set 0 only for a local test server
     CXI_IMAP_USER     you@gmail.com
     CXI_IMAP_PASSWORD an app password, never your real one
     CXI_IMAP_FOLDER   "[Gmail]/All Mail"
@@ -155,11 +157,12 @@ def read_mbox(path):
 
 def read_imap():
     host = os.environ.get("CXI_IMAP_HOST", "imap.gmail.com")
+    port = int(os.environ.get("CXI_IMAP_PORT", "993" if os.environ.get("CXI_IMAP_SSL", "1") != "0" else "143"))
     user = os.environ["CXI_IMAP_USER"]
     pw = os.environ["CXI_IMAP_PASSWORD"]
     folder = os.environ.get("CXI_IMAP_FOLDER", "[Gmail]/All Mail")
-    say(f"connecting to {host} as {user}, folder {folder}")
-    box = imaplib.IMAP4_SSL(host)
+    say(f"connecting to {host}:{port} as {user}, folder {folder}")
+    box = imaplib.IMAP4_SSL(host, port) if os.environ.get("CXI_IMAP_SSL", "1") != "0" else imaplib.IMAP4(host, port)
     box.login(user, pw)
     box.select(f'"{folder}"', readonly=True)
     _, data = box.search(None, "ALL")

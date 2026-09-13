@@ -54,6 +54,21 @@ check("council: bounce caught, resend answered", contacts["gemeente.example"]["b
 check("dead address listed", open(os.path.join(out, "bounced.txt")).read().strip() == "old.address@gemeente.example")
 check("thread statuses", sorted(t["status"] for t in threads) == ["OPEN", "OPEN", "OPEN", "answered"])
 
+# The same mailbox over IMAP, through a stand-in server, must give the same register.
+imap_port = 14300 + os.getpid() % 200
+srv = subprocess.Popen([sys.executable, os.path.join(HERE, "fake_imap.py"), str(imap_port), mbox_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+try:
+    import time as _t; _t.sleep(0.6)
+    out_imap = os.path.join(TMP, "register-imap")
+    ienv = dict(os.environ, CXI_IMAP_HOST="127.0.0.1", CXI_IMAP_PORT=str(imap_port), CXI_IMAP_SSL="0",
+                CXI_IMAP_USER="layna@example.test", CXI_IMAP_PASSWORD="app-password", CXI_IMAP_FOLDER="INBOX", CXI_MY_EMAILS=me)
+    ri = subprocess.run([sys.executable, os.path.join(ROOT, "workers", "handi_mail.py"), "--imap", "--out", out_imap], env=ienv, capture_output=True, text=True)
+    same = ri.returncode == 0 and open(os.path.join(out_imap, "contacts.csv")).read() == open(os.path.join(out, "contacts.csv")).read() \
+        and open(os.path.join(out_imap, "threads.csv")).read() == open(os.path.join(out, "threads.csv")).read()
+    check("IMAP path gives the identical register", same, (ri.stdout + ri.stderr).strip().splitlines()[-1:] if not same else "")
+finally:
+    srv.terminate(); srv.wait(timeout=5)
+
 env = dict(os.environ, CXI_PB_URL=BASE, CXI_SUPERUSER_EMAIL="test@cxi.local", CXI_SUPERUSER_PASSWORD="test-superuser-pass")
 r1 = subprocess.run([sys.executable, os.path.join(ROOT, "workers", "register_load.py"), "--source", "test", "--dir", out], env=env, capture_output=True, text=True)
 check("load into spine", r1.returncode == 0 and "contacts: 3 new" in r1.stdout, r1.stdout.strip().splitlines()[0] if r1.stdout else r1.stderr[-200:])
