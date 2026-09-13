@@ -105,6 +105,11 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
 - Worker log lines start with `[name]`. In `--json` mode print nothing
   else, or the caller's JSON parse grabs the log line.
 
+## Branches
+
+`main` is the branch to review into. Work happens on a branch and arrives
+in `main` by pull request. Never push to `main` directly.
+
 ## Commits
 
 Small, one concern each, message says what changed and what was verified.
