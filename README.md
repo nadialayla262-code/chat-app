@@ -45,6 +45,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
+| `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `scripts/dev.sh` | Downloads PocketBase and serves everything. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
@@ -183,6 +184,33 @@ Publication discipline is a field. Nothing appears on the board until you
 tick `published` on that organisation in the admin panel, and you can give
 it a `display_name` there too. Unverified stays off the site.
 
+## Bates numbering
+
+Non-negotiable for filing. Every page of every exhibit gets a number that
+never changes.
+
+```sh
+pip3 install pypdf reportlab pillow      # once; the only libraries in this repo beyond Python itself
+python3 workers/bates.py --in ~/CXI/evidence --out ~/CXI/exhibits
+```
+
+- Files are taken in path order, so the numbering is reproducible.
+- Every PDF page gets its own number, `CXI-000001`, `CXI-000002`, on
+  through the whole set. Images are wrapped as one-page PDFs and stamped
+  the same way. The stamp is burned in, bottom right, on a small white box
+  so it reads over any scan.
+- A file already in the ledger keeps its numbers. Add files, run again,
+  only the new ones are numbered. A byte-identical copy under another name
+  is reported as a duplicate and not renumbered.
+- Anything that is not a PDF or an image is numbered, copied, and flagged
+  NOT STAMPED until you convert it to PDF and run again.
+- Originals are never touched. `ledger.csv` is append-only and records
+  both the original's SHA-256 and the stamped copy's, so any page traces
+  back to the file it came from. `INDEX.md` is the exhibit index.
+
+Rate the State keeps its own prefix and its own ledger: `--prefix RTS`,
+separate `--out`.
+
 ## The method
 
 This is the part that matters more than the code.
@@ -206,6 +234,10 @@ directly against the API:
 - membership changes only through the invite route, owner only, never by direct update
 - deleting a room removes its messages (cascade)
 - other people see your name and avatar, never your email
+
+**Nothing is renumbered, nothing is overwritten.** The mail register
+upserts in place, the Bates ledger only appends, and every worker's log is
+append-only. What was true last run is still findable this run.
 
 **Realtime is a subscription, not polling.** The page subscribes to the
 `messages` collection filtered to the open room. New messages, edits and
