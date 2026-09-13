@@ -357,7 +357,8 @@ corpus indexed and searched; both workers, including what happens while
 a model is slow; a backup restored and counted; Bates numbering; the page
 in two real browsers; start and stop; and the sign-up code on a second
 spine. Ends with `ALL GREEN`. Your database is never touched.
-`./tests/run.sh rules` runs one suite.
+`./tests/run.sh rules` runs one suite. The same command runs on GitHub
+for every pull request.
 
 ## Data model
 
