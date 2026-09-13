@@ -14,3 +14,4 @@ __pycache__/
 workers/.handi-password
 # Handi mail register output (your data, never committed)
 register/
+tests/.tmp/

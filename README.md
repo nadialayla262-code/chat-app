@@ -47,6 +47,8 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
+| `tests/` | One command that proves all of the above. |
+| `HANDOVER.md`, `CLAUDE.md` | The state of things for a person, and the rules for a Claude Code session. |
 | `scripts/dev.sh` | Downloads PocketBase and serves everything. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
 | `bin/` | The PocketBase binary. Gitignored. |
@@ -248,6 +250,18 @@ the browser per room. Close the tab, come back, it is still there.
 
 **Accessible by default.** Large tap targets, high contrast, one ink colour,
 phone first, keyboard works everywhere, respects reduced-motion and dark mode.
+
+## Prove it
+
+```sh
+./tests/run.sh
+```
+
+Starts a throwaway spine on another port, a stand-in model, Homei and
+Handi, and runs every suite: access rules straight against the API, both
+workers, the mail register end to end into the spine, Bates numbering, and
+the page in two real browsers. Ends with `ALL GREEN`. Your database is
+never touched. `./tests/run.sh rules` runs one suite.
 
 ## Data model
 

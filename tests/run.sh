@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
+#
+#   ./tests/run.sh            # all
+#   ./tests/run.sh rules      # one of: rules workers browser register bates
+#
+# Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
+# Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+ROOT="$(pwd)"
+TMP="$ROOT/tests/.tmp"
+PORT="${CXI_TEST_PORT:-8099}"
+export CXI_TEST_URL="http://127.0.0.1:$PORT"
+export CXI_PB_URL="$CXI_TEST_URL"
+export CXI_OLLAMA_HOST="http://127.0.0.1:11435"
+PY="${PYTHON:-python3}"
+[ -x ./bin/pocketbase ] || { echo "no ./bin/pocketbase — run ./scripts/dev.sh once to fetch it"; exit 2; }
+
+rm -rf "$TMP"; mkdir -p "$TMP/pb_data" "$TMP/workers"
+PIDS=()
+stop() { for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill "$p" 2>/dev/null; done; }
+trap stop EXIT
+
+./bin/pocketbase migrate up --dir="$TMP/pb_data" --migrationsDir=./pb_migrations >/dev/null 2>&1
+./bin/pocketbase superuser upsert test@cxi.local test-superuser-pass --dir="$TMP/pb_data" >/dev/null 2>&1
+./bin/pocketbase serve --http="127.0.0.1:$PORT" --dir="$TMP/pb_data" --migrationsDir=./pb_migrations --hooksDir=./pb_hooks --publicDir=./public >"$TMP/pb.log" 2>&1 &
+PIDS+=($!)
+for i in $(seq 1 30); do curl -sf "$CXI_TEST_URL/api/health" >/dev/null && break; sleep 0.3; done
+curl -sf "$CXI_TEST_URL/api/health" >/dev/null || { echo "spine did not start"; cat "$TMP/pb.log"; exit 1; }
+
+want="${1:-all}"
+need_workers=0; case "$want" in all|workers) need_workers=1;; esac
+if [ "$need_workers" = 1 ]; then
+  "$PY" tests/fake_model.py 11435 >"$TMP/fake.log" 2>&1 & PIDS+=($!)
+  # workers keep their generated passwords next to themselves; point them at the temp folder
+  cp workers/*.py workers/*.md "$TMP/workers/"
+  ( cd "$TMP/workers" && CXI_HOMEI_POLL=0.5 "$PY" homei.py >"$TMP/homei.log" 2>&1 ) & PIDS+=($!)
+  ( cd "$TMP/workers" && CXI_HANDI_POLL=0.5 CXI_HANDI_MODEL=0 "$PY" handi.py >"$TMP/handi.log" 2>&1 ) & PIDS+=($!)
+  sleep 2
+fi
+
+status=0
+run() { echo; echo "== $1 =="; shift; "$@" || status=1; }
+case "$want" in
+  all)      run rules node tests/rules.js; run workers node tests/workers.js; run register "$PY" tests/register.py
+            run bates "$PY" tests/bates.py; run browser node tests/browser.js ;;
+  rules)    run rules node tests/rules.js ;;
+  workers)  run workers node tests/workers.js ;;
+  register) run register "$PY" tests/register.py ;;
+  bates)    run bates "$PY" tests/bates.py ;;
+  browser)  run browser node tests/browser.js ;;
+  *) echo "unknown suite: $want"; status=2 ;;
+esac
+echo; [ "$status" = 0 ] && echo "ALL GREEN" || echo "SOMETHING FAILED (logs in tests/.tmp)"
+exit $status
