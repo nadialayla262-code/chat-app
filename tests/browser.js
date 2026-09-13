@@ -61,6 +61,13 @@ if (!chromium) { console.log("browser: skipped (Playwright not installed: npm i 
   await A.waitForFunction(() => document.getElementById("members").textContent.includes("1 member"));
   check("owner bar shows 1 member again", true);
 
+  const dl = A.waitForEvent("download", { timeout: 8000 });
+  await A.click("#export");
+  const file = await dl;
+  const path = await file.path();
+  const exported = JSON.parse(require("fs").readFileSync(path, "utf8"));
+  check("export downloads my data", exported.person && exported.person.name === "Ada" && exported.messages.length >= 1, file.suggestedFilename());
+
   const P = await mk(390);
   await P.goto(BASE); await P.fill("#auth-email", `ada${t}@test.local`); await P.fill("#auth-password", PW); await P.click("#auth-submit");
   await P.waitForSelector("#chat:not([hidden])");

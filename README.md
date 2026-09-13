@@ -33,7 +33,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
-| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code. |
+| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code, export my data. |
 | `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
@@ -72,6 +72,14 @@ sign-up form. Without the code, sign-up stays open. You can still create
 accounts yourself from the admin panel, code or no code. Put the admin
 panel itself behind an access policy on the tunnel; `docs/LOVABLE.md`
 shows where.
+
+## Your data is yours
+
+"Export my data" in the room list downloads one JSON file with
+everything the spine holds about you: your profile, the rooms you own or
+belong to, every message you wrote, every memory a seat keeps about you.
+Nothing about anyone else. The route behind it is `GET /api/cxi/export`,
+signed-in only.
 
 ## Private rooms
 

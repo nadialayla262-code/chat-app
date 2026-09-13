@@ -26,6 +26,7 @@
     roomsPanel: $("rooms-panel"),
     roomTitle: $("room-title"),
     signout: $("signout"),
+    exportBtn: $("export"),
     you: $("you"),
     roomList: $("room-list"),
     roomForm: $("room-form"),
@@ -111,6 +112,21 @@
       showError(el.authError, err);
     } finally {
       el.authSubmit.disabled = false;
+    }
+  });
+
+  el.exportBtn.addEventListener("click", async () => {
+    clearError(el.chatError);
+    try {
+      const data = await cxi.auth.exportAll();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `cxi-chat-export-${(me().name || "me").replace(/\W+/g, "-")}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (err) {
+      showError(el.chatError, err);
     }
   });
 

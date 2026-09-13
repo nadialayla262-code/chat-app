@@ -9,6 +9,7 @@ up. Nothing here needs Claude Code to run.
 | Thing | What it does for you | Status |
 | --- | --- | --- |
 | **The chat** | Your server, your data. Rooms, live messages, drafts that survive interruption. Phone first. | Working, tested in two browsers |
+| **Export my data** | One click in the room list downloads everything the spine holds about the signed-in person. | Working, tested |
 | **Private rooms** | Invitation only. Non-members see nothing, get nothing, can't write. You invite by email, members can leave, you can never lock yourself out. | Working, tested |
 | **Homei** | Your chatbot, in the room, on your machine, through Ollama. The room history is its memory, and "homei, remember …" carries facts across rooms. Its rules are a text file. | Logic tested against a stand-in model. Not yet run with the real `qwen3:4b` |
 | **Handi in the room** | Say `@handi` and it posts who is waiting on whom, what is unanswered, what was promised. Counted, not imagined. `@handi find …` in a private room searches the corpus. | Working, tested |

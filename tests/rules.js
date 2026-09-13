@@ -54,6 +54,15 @@ const { BASE, PocketBase, sleep, person, check, blocked, done } = require("./lib
   await a.pb.send("/api/cxi/uninvite", { method: "POST", body: { room: priv.id, user: b.id } });
   check("B gone after uninvite", !(await b.pb.collection("rooms").getFullList()).some((r) => r.id === priv.id));
 
+  console.log("export");
+  const ex = await a.pb.send("/api/cxi/export", { method: "GET" });
+  check("export names me", ex.person.id === a.id && ex.person.email === a.email);
+  check("export has my rooms and messages", ex.rooms.some((r) => r.id === priv.id) && ex.messages.some((m) => m.body === "secret"));
+  check("export has nobody else's messages", ex.messages.every((m) => !["invited", "x"].includes(m.body)));
+  const exb = await b.pb.send("/api/cxi/export", { method: "GET" });
+  check("B's export does not carry A's private room", !exb.rooms.some((r) => r.id === priv.id));
+  await blocked("anon export", () => anon.send("/api/cxi/export", { method: "GET" }));
+
   console.log("register is locked");
   for (const col of ["contacts", "threads", "dead_addresses"]) {
     await blocked(`anon reads ${col}`, () => anon.collection(col).getList(1, 1));

@@ -81,6 +81,8 @@
         }
       },
       signOut() { pb.authStore.clear(); },
+      /** Everything the spine holds about you, as one JSON object. */
+      async exportAll() { return pb.send("/api/cxi/export", { method: "GET" }); },
       /** Called whenever the session becomes invalid (e.g. expired). */
       onSignedOut(fn) {
         pb.authStore.onChange(() => { if (!pb.authStore.isValid) fn(); });

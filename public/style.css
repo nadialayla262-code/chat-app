@@ -150,14 +150,13 @@ button:disabled { opacity: 0.55; cursor: default; }
   background: var(--ground-2);
 }
 .rooms-head {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 1rem;
   color: var(--ink-soft);
   font-size: 0.9rem;
   border-bottom: 1.5px solid var(--line);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
+.rooms-head .you { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rooms-head .link { min-height: 32px; font-size: 0.85rem; }
 .room-list {
   list-style: none;
   margin: 0;
