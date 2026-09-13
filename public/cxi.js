@@ -102,6 +102,10 @@
       async invite(roomId, email) {
         return pb.send("/api/cxi/invite", { method: "POST", body: { room: roomId, email } });
       },
+      /** Member leaves a private room. The owner cannot. */
+      async leave(roomId) {
+        return pb.send("/api/cxi/leave", { method: "POST", body: { room: roomId } });
+      },
       async uninvite(roomId, userId) {
         return pb.send("/api/cxi/uninvite", { method: "POST", body: { room: roomId, user: userId } });
       },

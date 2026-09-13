@@ -57,3 +57,22 @@ routerAdd("POST", "/api/cxi/uninvite", (e) => {
   e.app.save(room);
   return e.json(200, { ok: true });
 }, $apis.requireAuth("users"));
+
+// POST /api/cxi/leave   { room }   — a member leaves a private room. The owner cannot.
+routerAdd("POST", "/api/cxi/leave", (e) => {
+  const body = e.requestInfo().body || {};
+  const roomId = String(body.room || "").trim();
+  if (!roomId) throw new BadRequestError("room is required");
+  let room;
+  try {
+    room = e.app.findRecordById("rooms", roomId);
+  } catch (_) {
+    throw new NotFoundError("No such room");
+  }
+  if (room.get("created_by") === e.auth.id) throw new BadRequestError("The owner cannot leave their own room. Delete it instead.");
+  const members = room.get("members") || [];
+  if (!members.includes(e.auth.id)) throw new NotFoundError("You are not in this room");
+  room.set("members", members.filter((id) => id !== e.auth.id));
+  e.app.save(room);
+  return e.json(200, { ok: true });
+}, $apis.requireAuth("users"));

@@ -11,3 +11,4 @@ workers/.homei-password
 workers/log/
 __pycache__/
 *.pyc
+workers/.handi-password

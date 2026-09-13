@@ -38,9 +38,12 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
 | `public/vendor/` | The PocketBase JavaScript SDK, vendored so nothing is fetched from a CDN. |
-| `workers/homei.py` | Homei, the AI seat in the room. Standard-library Python, talks to Ollama. |
-| `workers/homei.system.md` | Homei's rules. Plain text, edit it freely. |
-| `workers/log/` | Append-only record of every answer Homei gave. Gitignored. |
+| `workers/cxi_spine.py` | The thin layer for workers. The only worker file that knows PocketBase or Ollama. |
+| `workers/homei.py` | Homei, the AI seat in the room. Standard-library Python. |
+| `workers/handi.py` | Handi, holds the thread: who is waiting on whom, what is open. |
+| `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
+| `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
+| `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `scripts/dev.sh` | Downloads PocketBase and serves everything. |
 | `pb_data/` | Your database. Gitignored. Never commit it. |
 | `bin/` | The PocketBase binary. Gitignored. |
@@ -52,9 +55,9 @@ line of the app in one sitting, and you can change it with any text editor.
 
 Tick "Private, invitation only" when you create a room. Only its members
 see it, read it, or get its live events. The owner invites people by email
-from the bar at the top of the room, and can remove them again. Nobody else
-can invite, nobody can add themselves, and the owner can never lock
-themselves out.
+from the bar at the top of the room, and can remove them again. Members can
+leave. Nobody else can invite, nobody can add themselves, and the owner can
+never lock themselves out.
 
 Emails are never searchable from the page. The lookup happens on the
 server, only for the room's owner, and comes back as a name.
@@ -92,7 +95,33 @@ Settings are environment variables, never edits:
 | `CXI_HOMEI_HISTORY` | `30` | How many messages it reads back |
 
 Swapping the model for DeepSeek later means changing one class in
-`workers/homei.py`, the one marked `Model`. Nothing else moves.
+`workers/cxi_spine.py`, the one marked `Model`. Nothing else moves.
+
+## Handi
+
+Handi holds the thread when you can't. Say `@handi` in a room and it posts
+the register for that room, computed from the messages, not imagined:
+
+```
+thread — 4 lines, Ada, Bram.
+Last word: Ada. Waiting on: Bram.
+Open questions:
+  · Ada asked "Which address did you use?" — no reply yet.
+Open promises:
+  · Bram: "Not yet. I'll send the scan tonight."
+```
+
+Say `@handi all` and it does every room it can see. If the model is
+reachable it adds three lines saying where the thread stands and whose
+move it is. If not, the register stands alone. Lines from Homei or Handi
+never count as questions or promises.
+
+```sh
+python3 workers/handi.py
+```
+
+Same settings pattern as Homei, prefixed `CXI_HANDI_`. Set
+`CXI_HANDI_MODEL=0` to keep it purely deterministic.
 
 ## The method
 
@@ -141,10 +170,10 @@ messages               id, room -> rooms, author -> users, body, created
 - **Patchi / Gar Shield** becomes the sign-in. Today it is PocketBase's own
   email and password auth; the collection rules do not change when the
   identity layer does.
-- **Handi** can read the same `messages` collection to hold the thread.
+- **Handi on your mail**, the same register over Gmail threads, once the
+  spine holds them.
+- **A Lovable front end** on this spine. The recipe is in `docs/LOVABLE.md`.
 - **Homei on DeepSeek**, self-hosted, once that is the driver model.
-- A Lovable surface pointed at this PocketBase, if you want to steer it
-  visually.
 
 ## Licence
 

@@ -33,6 +33,7 @@
     members: $("members"),
     inviteForm: $("invite-form"),
     inviteEmail: $("invite-email"),
+    leaveRoom: $("leave-room"),
     messageList: $("message-list"),
     emptyState: $("empty-state"),
     composer: $("composer"),
@@ -169,9 +170,24 @@
     if (!room || !room.private) { el.roomInfo.hidden = true; return; }
     const names = room.members.map((m) => m.name || "someone");
     el.members.textContent = `Private · ${names.length} ${names.length === 1 ? "member" : "members"}: ${names.join(", ")}`;
-    el.inviteForm.hidden = room.created_by !== me().id;
+    const owner = room.created_by === me().id;
+    el.inviteForm.hidden = !owner;
+    el.leaveRoom.hidden = owner;
     el.roomInfo.hidden = false;
   };
+
+  el.leaveRoom.addEventListener("click", async () => {
+    if (!state.roomId) return;
+    clearError(el.chatError);
+    try {
+      await cxi.rooms.leave(state.roomId);
+      // The room disappears from our list via the feed; leave it now regardless.
+      state.rooms = state.rooms.filter((r) => r.id !== state.roomId);
+      await leaveRoom();
+    } catch (err) {
+      showError(el.chatError, err);
+    }
+  });
 
   el.inviteForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -309,12 +325,18 @@
     el.composer.hidden = false;
 
     try {
-      state.messages = await cxi.messages.history(roomId, 100);
-      renderMessages();
+      // Subscribe before loading history so nothing sent in between is lost;
+      // upsert dedupes anything that arrives both ways.
       state.unwatchMessages = await cxi.messages.watch(roomId, ({ action, message }) => {
+        if (state.roomId !== roomId) return;
         if (action === "delete") removeMessage(message.id);
         else upsertMessage(message);
       });
+      const history = await cxi.messages.history(roomId, 100);
+      if (state.roomId !== roomId) return;
+      const seen = new Set(history.map((m) => m.id));
+      state.messages = history.concat(state.messages.filter((m) => !seen.has(m.id)));
+      renderMessages();
     } catch (err) {
       showError(el.chatError, err);
     }
