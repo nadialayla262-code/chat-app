@@ -31,9 +31,17 @@ def http(method, url, body=None, headers=None, timeout=120):
     req.add_header("Content-Type", "application/json")
     for k, v in (headers or {}).items():
         req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read()
-        return json.loads(raw) if raw else {}
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read()
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        # Keep the server's own explanation; a bare status code helps nobody.
+        try:
+            detail = e.read().decode("utf-8", "replace")[:600]
+        except Exception:
+            detail = ""
+        raise urllib.error.HTTPError(e.url, e.code, f"{e.reason}: {detail}" if detail else e.reason, e.headers, None) from None
 
 
 def load_password(env_name, path):
@@ -116,6 +124,67 @@ class Spine:
         return http("POST", f"{self.base}/api/collections/messages/records",
                     {"room": room_id, "author": self.me["id"], "body": body}, headers=self._h())
 
+    # Generic record access, used by the loaders and the corpus workers.
+    def find(self, collection, filt):
+        q = urllib.parse.urlencode({"filter": filt, "perPage": 1})
+        items = http("GET", f"{self.base}/api/collections/{collection}/records?{q}", headers=self._h())["items"]
+        return items[0] if items else None
+
+    def list_all(self, collection, filt="", fields="", sort="", per_page=500):
+        """Every record matching filt, page by page."""
+        page = 1
+        while True:
+            params = {"perPage": per_page, "page": page}
+            if filt: params["filter"] = filt
+            if fields: params["fields"] = fields
+            if sort: params["sort"] = sort
+            r = http("GET", f"{self.base}/api/collections/{collection}/records?{urllib.parse.urlencode(params)}", headers=self._h())
+            for item in r["items"]:
+                yield item
+            if page >= r["totalPages"]:
+                return
+            page += 1
+
+    def create(self, collection, data):
+        return http("POST", f"{self.base}/api/collections/{collection}/records", data, headers=self._h())
+
+    def update(self, collection, record_id, data):
+        return http("PATCH", f"{self.base}/api/collections/{collection}/records/{record_id}", data, headers=self._h())
+
+    def delete(self, collection, record_id):
+        req = urllib.request.Request(f"{self.base}/api/collections/{collection}/records/{record_id}", method="DELETE")
+        for k, v in self._h().items():
+            req.add_header(k, v)
+        with urllib.request.urlopen(req, timeout=60):
+            return True
+
+    def upsert(self, collection, filt, data):
+        """Returns (record, created?)."""
+        existing = self.find(collection, filt)
+        if existing:
+            return self.update(collection, existing["id"], data), False
+        return self.create(collection, data), True
+
+
+class Superuser(Spine):
+    """The same spine, signed in as a superuser. Locked collections open up.
+    Reads CXI_SUPERUSER_EMAIL / CXI_SUPERUSER_PASSWORD."""
+
+    def sign_in(self, email=None, password=None):
+        email = email or os.environ.get("CXI_SUPERUSER_EMAIL")
+        password = password or os.environ.get("CXI_SUPERUSER_PASSWORD")
+        if not email or not password:
+            raise SystemExit("set CXI_SUPERUSER_EMAIL and CXI_SUPERUSER_PASSWORD (your PocketBase superuser)")
+        r = http("POST", f"{self.base}/api/collections/_superusers/auth-with-password",
+                 {"identity": email, "password": password})
+        self.token, self.me = r["token"], r["record"]
+        return self.me
+
+
+def q(s):
+    """Quote a value for a PocketBase filter."""
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
 
 # ---------------------------------------------------------------------------
 # Model — the only class that knows the model server is Ollama.
@@ -135,3 +204,8 @@ class Model:
         }, timeout=300)
         text = (r.get("message") or {}).get("content", "")
         return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+
+    def embed(self, texts):
+        """List of texts -> list of float vectors, via Ollama /api/embed."""
+        r = http("POST", f"{self.host}/api/embed", {"model": self.name, "input": texts}, timeout=600)
+        return r["embeddings"]

@@ -23,40 +23,14 @@ import hashlib
 import os
 import sys
 import urllib.error
-import urllib.parse
 
-from cxi_spine import Spine, http, say as _say
+from cxi_spine import Superuser, q, say as _say
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def say(msg):
     _say("register-load", msg)
-
-
-class Superuser(Spine):
-    """Same spine, signed in as a superuser. Locked collections open up."""
-
-    def sign_in(self, email, password):
-        r = http("POST", f"{self.base}/api/collections/_superusers/auth-with-password",
-                 {"identity": email, "password": password})
-        self.token, self.me = r["token"], r["record"]
-        return self.me
-
-    def find(self, collection, filt):
-        q = urllib.parse.urlencode({"filter": filt, "perPage": 1})
-        items = http("GET", f"{self.base}/api/collections/{collection}/records?{q}", headers=self._h())["items"]
-        return items[0] if items else None
-
-    def upsert(self, collection, filt, data):
-        existing = self.find(collection, filt)
-        if existing:
-            return http("PATCH", f"{self.base}/api/collections/{collection}/records/{existing['id']}", data, headers=self._h()), False
-        return http("POST", f"{self.base}/api/collections/{collection}/records", data, headers=self._h()), True
-
-
-def q(s):
-    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def date(s):
@@ -74,14 +48,9 @@ def main():
     ap.add_argument("--publish", action="store_true")
     args = ap.parse_args()
 
-    email = os.environ.get("CXI_SUPERUSER_EMAIL")
-    password = os.environ.get("CXI_SUPERUSER_PASSWORD")
-    if not email or not password:
-        say("set CXI_SUPERUSER_EMAIL and CXI_SUPERUSER_PASSWORD (your PocketBase superuser)")
-        sys.exit(2)
     spine = Superuser()
     try:
-        spine.sign_in(email, password)
+        spine.sign_in()
     except urllib.error.HTTPError as e:
         say(f"superuser sign-in failed: {e}")
         sys.exit(2)

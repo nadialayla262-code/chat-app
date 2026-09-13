@@ -1,4 +1,4 @@
-// Homei and Handi against a stand-in model server (tests/fake_model.py).
+// Homei and Handi against a stand-in model server (tests/fake_embed.py).
 const { sleep, person, check, done } = require("./lib");
 const from = async (pb, roomId, name) =>
   (await pb.collection("messages").getList(1, 30, { filter: `room = "${roomId}"`, sort: "created", expand: "author" })).items

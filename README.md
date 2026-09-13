@@ -46,6 +46,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
+| `workers/index.py`, `workers/search.py` | The corpus in the spine: chunk, embed, search. |
 | `docs/LOVABLE.md` | How to point a Lovable front end at this spine through a tunnel. |
 | `tests/` | One command that proves all of the above. |
 | `HANDOVER.md`, `CLAUDE.md` | The state of things for a person, and the rules for a Claude Code session. |
@@ -186,6 +187,33 @@ Publication discipline is a field. Nothing appears on the board until you
 tick `published` on that organisation in the admin panel, and you can give
 it a `display_name` there too. Unverified stays off the site.
 
+## The corpus in the spine
+
+The one hole in the stack, closed: embeddings live in your own database,
+backed up with everything else, searchable from one place.
+
+```sh
+ollama pull qwen3-embedding:0.6b                                   # once
+CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/index.py --in ~/CXI/extracted                    # chunk + embed, skips what is done
+CXI_SUPERUSER_EMAIL=... CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/search.py "signature added later"                # top matches with Bates numbers
+```
+
+- `documents` and `chunks` are locked collections: superuser and server
+  routes only. Every chunk carries its text, its embedding, and the model
+  that made it.
+- Re-running the indexer is cheap. Same file hash, same model: skipped.
+  Change the model: only the missing embeddings are made.
+- Set `CXI_BATES_LEDGER` to a Bates `ledger.csv` and every document gets
+  its Bates range, so a search result names the exhibit.
+- Search keeps a small binary cache of vectors in `workers/.vectors/` and
+  refreshes it from the spine each run, so a query costs one small pull.
+  With numpy installed, scoring is instant; without it, the same answer,
+  slower.
+- A chunk embedded at a different dimension is never scored. A different
+  model is a different index.
+
 ## Bates numbering
 
 Non-negotiable for filing. Every page of every exhibit gets a number that
@@ -259,8 +287,8 @@ phone first, keyboard works everywhere, respects reduced-motion and dark mode.
 
 Starts a throwaway spine on another port, a stand-in model, Homei and
 Handi, and runs every suite: access rules straight against the API, both
-workers, the mail register end to end into the spine, Bates numbering, and
-the page in two real browsers. Ends with `ALL GREEN`. Your database is
+workers, the mail register end to end into the spine, the corpus indexed
+and searched, Bates numbering, and the page in two real browsers. Ends with `ALL GREEN`. Your database is
 never touched. `./tests/run.sh rules` runs one suite.
 
 ## Data model
@@ -268,6 +296,8 @@ never touched. `./tests/run.sh rules` runs one suite.
 ```
 users     (built in)   id, name, avatar, email (hidden from others)
 rooms                  id, name (unique), topic, private, created_by -> users, members -> users[]
+contacts, threads, dead_addresses      the mail register (locked)
+documents, chunks                      the corpus with embeddings (locked)
 messages               id, room -> rooms, author -> users, body, created
 ```
 

@@ -53,7 +53,7 @@ both before your first change.
 
 Green or it does not ship. Browser and Bates suites skip themselves if
 Playwright or the PDF libraries are missing; say so in the commit if they
-were skipped. The Homei and Handi suites run against `tests/fake_model.py`,
+were skipped. The Homei and Handi suites run against `tests/fake_embed.py`,
 so worker logic is tested; the real model is not.
 
 When you change the page, run `tests/browser.js`. When you change a rule,
@@ -66,13 +66,13 @@ run `tests/rules.js`. When you add a worker, add a test for it.
 | `pb_migrations/` | Schema and rules, in order, each with a rollback |
 | `pb_hooks/` | Server routes: invite / uninvite / leave, register summary and board |
 | `public/` | The page. `cxi.js` is the thin layer; `app.js` never touches the back end |
-| `workers/` | Homei, Handi, Handi on mail, register loader, Bates. `cxi_spine.py` is their thin layer |
+| `workers/` | Homei, Handi, Handi on mail, register loader, corpus index and search, Bates. `cxi_spine.py` is their thin layer |
 | `tests/` | `run.sh` and one script per suite |
 | `docs/LOVABLE.md` | Pointing a Lovable front end at this spine |
 | `scripts/dev.sh` | Fetches PocketBase and serves everything |
 
 Gitignored and never committed: `pb_data/` (the database), `bin/`,
-`register/`, `workers/log/`, `workers/.*-password`, `tests/.tmp/`.
+`register/`, `workers/log/`, `workers/.vectors/`, `workers/.*-password`, `tests/.tmp/`.
 
 ## Things that bit us once
 
@@ -88,6 +88,10 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
   message sent in between is lost. The page does this; keep it that way.
 - `pkill -f` with a pattern that appears in your own shell command kills
   the shell. Stop processes by id.
+- A required number field rejects 0 ("cannot be blank"). Leave `required`
+  off and let a unique index enforce presence.
+- Worker log lines start with `[name]`. In `--json` mode print nothing
+  else, or the caller's JSON parse grabs the log line.
 
 ## Commits
 
