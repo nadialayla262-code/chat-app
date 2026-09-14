@@ -36,7 +36,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
-| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code, export my data. |
+| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code, export my data, the Desk. |
 | `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
@@ -48,6 +48,8 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
+| `workers/exports_unpack.py` | Turns a Claude, ChatGPT, Gemini, Grok or DeepSeek export into one text file per conversation, with an index, for the corpus. |
+| `workers/board_load.py` | Loads a board (done / working on / ideas, with stage and priority) from a CSV into one person's Desk. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `workers/index.py`, `workers/search.py` | The corpus in the spine: chunk, embed, search. |
 | `workers/backup.py` | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. |
@@ -139,6 +141,7 @@ Settings are environment variables, never edits:
 | `CXI_CHAT_MODEL` | `qwen3:4b` | Which Ollama model answers |
 | `CXI_OLLAMA_HOST` | `http://127.0.0.1:11434` | Where Ollama is |
 | `CXI_PB_URL` | `http://127.0.0.1:8090` | Where the spine is |
+| `CXI_DESK_OWNERS` | unset (Desk closed) | Emails allowed to open the Desk, comma-separated |
 | `CXI_HOMEI_HISTORY` | `30` | How many messages it reads back |
 
 Swapping the model for DeepSeek later means changing one class in
@@ -230,6 +233,83 @@ never an address, never a subject:
 Publication discipline is a field. Nothing appears on the board until you
 tick `published` on that organisation in the admin panel, and you can give
 it a `display_name` there too. Unverified stays off the site.
+
+
+## The board
+
+What you have done, are working on, have as an idea: one row per thing,
+with a stage (idea, working, built, live, done, parked) and a priority
+(now, next, later). Press **Desk** in the top bar; the board is at the top.
+Every signed-in person has their own and nobody else sees it. Rows are
+never deleted, only parked. Rules are collection rules in
+`pb_migrations/1758400000_projects.js`; the page enforces nothing.
+
+Add a thing in the form, move it with the arrows, cycle its priority, park
+it. Or load a list you keep elsewhere:
+
+```sh
+CXI_SUPERUSER_EMAIL=you@example.com CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/board_load.py --csv board.csv --owner you@example.com
+```
+
+CSV columns: `title` (the key; re-running updates in place), `stage`,
+`priority` (1, 2, 3 or blank), `area`, `link`, `source`, `notes`. An
+unknown stage or a priority outside 1..3 is refused and named, never
+guessed. The loader prints the rules it applied.
+
+## The Desk
+
+One screen behind the chat, for the person who runs the spine. Press
+**Desk** in the top bar:
+
+- **Waiting on a reply**: every open thread in the mail register, most
+  recently written first, with how many times you wrote and how many human
+  replies came back. The counts across the whole register sit above it.
+- **Latest documents in**: the newest files in the corpus, with their Bates
+  numbers where they have one.
+- **Seats**: whether Homei and Handi are seated and where each last spoke.
+- **Find a phrase**: a word search over the corpus text. It quotes the
+  passage and names the document. This is not the embedding search
+  (`workers/search.py`, which needs the model); it needs nothing and
+  answers "where does this phrase occur".
+
+The register and the corpus are locked collections, so the Desk is gated
+on the server. Start the spine with
+
+```sh
+export CXI_DESK_OWNERS="you@example.com"        # comma-separated for more than one
+./scripts/start.sh
+```
+
+and only a signed-in person with that email gets an answer. Unset, the
+Desk is closed for everyone and says so. The page hides nothing and
+enforces nothing; `pb_hooks/desk.pb.js` does both.
+
+| Route | Returns |
+| --- | --- |
+| `GET /api/cxi/desk` | open threads, register counts, latest documents, the seats, counts |
+| `GET /api/cxi/desk/search?q=` | documents whose text contains the phrase, with up to three quoted passages each |
+
+## Unpacking chat exports
+
+Claude, ChatGPT, Gemini (Google Takeout), Grok and DeepSeek all hand you a
+zip. `workers/exports_unpack.py` turns each into one dated text file per
+conversation, plus `index.csv` and `titles.csv`, so the corpus indexer can
+read it and the Desk can search it. Nothing is summarised or dropped:
+every turn is written as exported, empty turns as `(empty)`, unknown file
+shapes reported by name rather than guessed.
+
+```sh
+python3 workers/exports_unpack.py --in ~/Downloads/data-2026-09-11.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/takeout-20260911.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/grok.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/deepseek.zip --out ~/exports
+python3 workers/index.py --in ~/exports
+```
+
+Re-running with the same input rewrites the same files and keeps the
+index whole. `titles.csv` lists every conversation oldest first, which is
+the quickest map of what you have been thinking about and when.
 
 ## The corpus in the spine
 

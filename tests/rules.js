@@ -1,5 +1,5 @@
 // Access rules, straight against the API: open rooms, private rooms, invitations, the register.
-const { BASE, PocketBase, sleep, person, check, blocked, done } = require("./lib");
+const { BASE, PocketBase, sleep, person, personWithEmail, superuser, check, blocked, done } = require("./lib");
 (async () => {
   const anon = new PocketBase(BASE);
   const a = await person("A"), b = await person("B"), c = await person("C");
@@ -70,5 +70,44 @@ const { BASE, PocketBase, sleep, person, check, blocked, done } = require("./lib
   }
   const summary = await anon.send("/api/cxi/register/summary", { method: "GET" });
   check("public summary answers", typeof summary.organisations_written_to === "number");
+
+  console.log("the board");
+  const pa = await a.pb.collection("projects").create({ owner: a.id, title: `Thing ${t}`, stage: "idea", priority: 1 });
+  await blocked("B creates a project as A", () => b.pb.collection("projects").create({ owner: a.id, title: `Forged ${t}`, stage: "idea" }));
+  await blocked("anon creates a project", () => anon.collection("projects").create({ owner: a.id, title: `Anon ${t}`, stage: "idea" }));
+  check("B does not list A's projects", !(await b.pb.collection("projects").getFullList()).some((r) => r.id === pa.id));
+  await blocked("B views A's project by id", () => b.pb.collection("projects").getOne(pa.id));
+  await blocked("B moves A's project", () => b.pb.collection("projects").update(pa.id, { stage: "done" }));
+  await blocked("A hands the project to B", () => a.pb.collection("projects").update(pa.id, { owner: b.id }));
+  await blocked("A deletes a project (park instead)", () => a.pb.collection("projects").delete(pa.id));
+  await blocked("unknown stage", () => a.pb.collection("projects").create({ owner: a.id, title: `Bad ${t}`, stage: "soon" }));
+  await blocked("priority 4", () => a.pb.collection("projects").create({ owner: a.id, title: `Bad2 ${t}`, stage: "idea", priority: 4 }));
+  await blocked("same title twice for one person", () => a.pb.collection("projects").create({ owner: a.id, title: `Thing ${t}`, stage: "done" }));
+  await b.pb.collection("projects").create({ owner: b.id, title: `Thing ${t}`, stage: "idea" });
+  check("same title is fine for another person", true);
+  const moved = await a.pb.collection("projects").update(pa.id, { stage: "parked", priority: null });
+  check("A parks own project and clears priority", moved.stage === "parked" && !moved.priority);
+
+  console.log("the desk");
+  await blocked("anon opens the desk", () => anon.send("/api/cxi/desk", { method: "GET" }));
+  try { await a.pb.send("/api/cxi/desk", { method: "GET" }); check("stranger opens the desk", false, "(was allowed)"); }
+  catch (e) { check("stranger is refused with a sentence", e.status === 403 && /belongs to the person/.test(e.response.message), e.response.message); }
+  await blocked("stranger searches the desk", () => a.pb.send("/api/cxi/desk/search", { method: "GET", query: { q: "secret" } }));
+  const owner = await personWithEmail("Owner", "desk@test.local");
+  const desk = await owner.pb.send("/api/cxi/desk", { method: "GET" });
+  check("owner opens the desk", desk.person.id === owner.id && Array.isArray(desk.waiting) && Array.isArray(desk.documents) && desk.seats.length === 2);
+  check("desk carries the register counts", typeof desk.register.open_threads === "number" && typeof desk.counts.documents === "number");
+  const second = await personWithEmail("Second", "second.owner@test.local");
+  check("second owner, listed with other casing, opens the desk", (await second.pb.send("/api/cxi/desk", { method: "GET" })).person.id === second.id);
+  const su = await superuser();
+  const doc = await su.collection("documents").create({ path: `desk/${t}.txt`, sha256: String(t).padStart(64, "a"), title: `Desk doc ${t}`, chars: 40, chunks: 1, bates_start: "CXI-000123" });
+  await su.collection("chunks").create({ document: doc.id, ordinal: 0, text: `The signature block was added later, in different ink. ${t}`, model: "desk-test", dim: 4, embedding: [0, 0, 0, 0] });
+  await su.collection("chunks").create({ document: doc.id, ordinal: 0, text: `The signature block was added later, in different ink. ${t}`, model: "desk-test-2", dim: 4, embedding: [0, 0, 0, 0] });
+  const found = await owner.pb.send("/api/cxi/desk/search", { method: "GET", query: { q: "different ink" } });
+  const hit = found.results.find((r) => r.id === doc.id);
+  check("owner search finds the seeded document once, not once per model", !!hit && hit.hits === 1 && hit.bates_start === "CXI-000123" && /different ink/.test(hit.snippets[0].text), JSON.stringify(hit));
+  check("one-letter search answers empty, not with everything", (await owner.pb.send("/api/cxi/desk/search", { method: "GET", query: { q: "i" } })).results.length === 0);
+  check("desk lists the seeded document among the latest", (await owner.pb.send("/api/cxi/desk", { method: "GET" })).documents.some((d) => d.id === doc.id));
+  await blocked("owner still cannot read the corpus directly", () => owner.pb.collection("chunks").getList(1, 1));
   done("rules");
 })().catch((e) => { console.error("ERR", e.response || e); process.exit(1); });

@@ -47,6 +47,7 @@
     <header class="topbar">
       <button type="button" class="icon" id="rooms-toggle" aria-label="Show rooms">☰</button>
       <h2 id="room-title">Choose a room</h2>
+      <button type="button" class="small" id="desk-toggle" aria-pressed="false">Desk</button>
       <button type="button" class="link small" id="signout">Sign out</button>
     </header>
 
@@ -67,6 +68,58 @@
       </aside>
 
       <main class="pane">
+        <!-- The Desk: one screen behind the chat. Filled by cxi.desk; the server decides who may see it. -->
+        <section id="desk" class="desk" hidden aria-label="Desk">
+          <!-- The board is yours: every signed-in person has one. -->
+          <section class="board" aria-labelledby="board-h">
+            <div class="board-head">
+              <h3 id="board-h">Board</h3>
+              <p class="card-sub" id="board-sub"></p>
+            </div>
+            <form id="board-form" class="board-form">
+              <input id="board-title" type="text" placeholder="Add a thing…" maxlength="200" required />
+              <select id="board-stage" aria-label="Stage">
+                <option value="idea">idea</option><option value="working">working on</option><option value="built">built</option>
+                <option value="live">live</option><option value="done">done</option>
+              </select>
+              <select id="board-priority" aria-label="Priority">
+                <option value="">no priority</option><option value="1">now</option><option value="2">next</option><option value="3">later</option>
+              </select>
+              <input id="board-area" type="text" placeholder="Area (optional)" maxlength="80" />
+              <button type="submit" class="primary small">Add</button>
+            </form>
+            <div id="board-columns" class="board-columns"></div>
+            <details id="board-parked"><summary class="soft">Parked</summary><ul id="board-parked-list" class="plain"></ul></details>
+          </section>
+
+          <p class="error" id="desk-closed" role="status" hidden></p>
+          <div id="desk-body" hidden>
+            <form id="desk-search-form" class="desk-search">
+              <input id="desk-q" type="search" placeholder="Find a phrase in the documents…" autocomplete="off" maxlength="200" />
+              <button type="submit" class="primary small">Find</button>
+            </form>
+            <div id="desk-results" class="desk-results" aria-live="polite"></div>
+
+            <div class="desk-grid">
+              <section class="card" aria-labelledby="desk-waiting-h">
+                <h3 id="desk-waiting-h">Waiting on a reply</h3>
+                <p class="card-sub" id="desk-register"></p>
+                <ul id="desk-waiting" class="plain"></ul>
+              </section>
+              <section class="card" aria-labelledby="desk-documents-h">
+                <h3 id="desk-documents-h">Latest documents in</h3>
+                <p class="card-sub" id="desk-documents-sub"></p>
+                <ul id="desk-documents" class="plain"></ul>
+              </section>
+              <section class="card" aria-labelledby="desk-seats-h">
+                <h3 id="desk-seats-h">Seats</h3>
+                <ul id="desk-seats" class="plain"></ul>
+                <p class="card-sub">Say a seat's name in a room to use it. <code>@handi</code> for the register, <code>homei, …</code> to talk.</p>
+              </section>
+            </div>
+          </div>
+        </section>
+
         <div id="room-info" class="room-info" hidden>
           <span class="members" id="members"></span>
           <form id="invite-form" class="invite-form" hidden>

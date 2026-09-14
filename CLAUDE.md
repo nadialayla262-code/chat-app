@@ -66,9 +66,9 @@ run `tests/rules.js`. When you add a worker, add a test for it.
 | Path | What |
 | --- | --- |
 | `pb_migrations/` | Schema and rules, in order, each with a rollback |
-| `pb_hooks/` | Server routes and guards: invite / uninvite / leave, register summary and board, sign-up code, export |
+| `pb_hooks/` | Server routes and guards: invite / uninvite / leave, register summary and board, sign-up code, export, the Desk |
 | `public/` | The page. `cxi.js` is the thin layer; `app.js` never touches the back end |
-| `workers/` | Homei, Handi, Handi on mail, register loader, corpus index and search, backup, Bates. `cxi_spine.py` is their thin layer |
+| `workers/` | Homei, Handi, Handi on mail, register loader, board loader, export unpacker, corpus index and search, backup, Bates. `cxi_spine.py` is their thin layer |
 | `tests/` | `run.sh` and one script per suite |
 | `docs/LOVABLE.md` | Pointing a Lovable front end at this spine |
 | `scripts/start.sh`, `stop.sh`, `dev.sh` | Background start/stop by pid file; foreground spine |
@@ -105,6 +105,9 @@ Gitignored and never committed: `pb_data/` (the database), `bin/`,
   off and let a unique index enforce presence.
 - Worker log lines start with `[name]`. In `--json` mode print nothing
   else, or the caller's JSON parse grabs the log line.
+- The SDK's `getFullList()` returns a promise. `.map` on it is not a
+  page error, it is a rejected promise the page shows as a message, and
+  the browser suite only catches it after a reload. Await first.
 
 ## Branches
 
