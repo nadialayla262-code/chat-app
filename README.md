@@ -48,6 +48,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
+| `workers/board_load.py` | Loads a board (done / working on / ideas, with stage and priority) from a CSV into one person's Desk. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `workers/index.py`, `workers/search.py` | The corpus in the spine: chunk, embed, search. |
 | `workers/backup.py` | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. |
@@ -232,6 +233,28 @@ Publication discipline is a field. Nothing appears on the board until you
 tick `published` on that organisation in the admin panel, and you can give
 it a `display_name` there too. Unverified stays off the site.
 
+
+## The board
+
+What you have done, are working on, have as an idea: one row per thing,
+with a stage (idea, working, built, live, done, parked) and a priority
+(now, next, later). Press **Desk** in the top bar; the board is at the top.
+Every signed-in person has their own and nobody else sees it. Rows are
+never deleted, only parked. Rules are collection rules in
+`pb_migrations/1758400000_projects.js`; the page enforces nothing.
+
+Add a thing in the form, move it with the arrows, cycle its priority, park
+it. Or load a list you keep elsewhere:
+
+```sh
+CXI_SUPERUSER_EMAIL=you@example.com CXI_SUPERUSER_PASSWORD=... \
+  python3 workers/board_load.py --csv board.csv --owner you@example.com
+```
+
+CSV columns: `title` (the key; re-running updates in place), `stage`,
+`priority` (1, 2, 3 or blank), `area`, `link`, `source`, `notes`. An
+unknown stage or a priority outside 1..3 is refused and named, never
+guessed. The loader prints the rules it applied.
 
 ## The Desk
 

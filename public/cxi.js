@@ -8,6 +8,7 @@
  *   user     { id, name, email? }
  *   room     { id, name, topic, private, created_by, members: [{id, name}], created }
  *   message  { id, room, author, author_name, body, created }
+ *   project  { id, title, stage, priority, area, link, source, notes, created, updated }
  *   desk     see cxi.desk below; served by pb_hooks/desk.pb.js
  */
 (function (global) {
@@ -38,6 +39,11 @@
       created: r.created,
     };
   };
+  const asProject = (r) => ({
+    id: r.id, title: r.title, stage: r.stage, priority: r.priority || null,
+    area: r.area || "", link: r.link || "", source: r.source || "", notes: r.notes || "",
+    created: r.created, updated: r.updated,
+  });
   const asUser = (u) => (u ? { id: u.id, name: u.name || "", email: u.email || "" } : null);
 
   /** Turn a back-end error into one plain sentence. */
@@ -145,6 +151,25 @@
           if (e.record.room !== roomId) return;
           fn({ action: e.action, message: asMessage(e.record) });
         }, { filter: pb.filter("room = {:room}", { room: roomId }), expand: "author" });
+      },
+    },
+
+    /** The board: what you have done, are working on, have as an idea. Yours only; rules on the server. */
+    projects: {
+      /** All of mine, priority first then title. */
+      async list() {
+        return (await pb.collection("projects").getFullList({ sort: "priority,title" })).map(asProject);
+      },
+      async create({ title, stage = "idea", priority = null, area = "", link = "", source = "", notes = "" }) {
+        const data = { owner: pb.authStore.record.id, title, stage, area, link, source, notes };
+        if (priority) data.priority = priority;
+        return asProject(await pb.collection("projects").create(data));
+      },
+      /** patch may carry stage, priority (1..3 or null), area, link, notes, title. Never owner. */
+      async update(id, patch) { return asProject(await pb.collection("projects").update(id, patch)); },
+      /** fn({ action, project }) — returns an unsubscribe function. */
+      async watch(fn) {
+        return pb.collection("projects").subscribe("*", (e) => fn({ action: e.action, project: asProject(e.record) }));
       },
     },
 

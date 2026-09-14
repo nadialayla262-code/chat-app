@@ -70,6 +70,28 @@
       <main class="pane">
         <!-- The Desk: one screen behind the chat. Filled by cxi.desk; the server decides who may see it. -->
         <section id="desk" class="desk" hidden aria-label="Desk">
+          <!-- The board is yours: every signed-in person has one. -->
+          <section class="board" aria-labelledby="board-h">
+            <div class="board-head">
+              <h3 id="board-h">Board</h3>
+              <p class="card-sub" id="board-sub"></p>
+            </div>
+            <form id="board-form" class="board-form">
+              <input id="board-title" type="text" placeholder="Add a thing…" maxlength="200" required />
+              <select id="board-stage" aria-label="Stage">
+                <option value="idea">idea</option><option value="working">working on</option><option value="built">built</option>
+                <option value="live">live</option><option value="done">done</option>
+              </select>
+              <select id="board-priority" aria-label="Priority">
+                <option value="">no priority</option><option value="1">now</option><option value="2">next</option><option value="3">later</option>
+              </select>
+              <input id="board-area" type="text" placeholder="Area (optional)" maxlength="80" />
+              <button type="submit" class="primary small">Add</button>
+            </form>
+            <div id="board-columns" class="board-columns"></div>
+            <details id="board-parked"><summary class="soft">Parked</summary><ul id="board-parked-list" class="plain"></ul></details>
+          </section>
+
           <p class="error" id="desk-closed" role="status" hidden></p>
           <div id="desk-body" hidden>
             <form id="desk-search-form" class="desk-search">

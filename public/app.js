@@ -55,6 +55,14 @@
     deskDocumentsSub: $("desk-documents-sub"),
     deskDocuments: $("desk-documents"),
     deskSeats: $("desk-seats"),
+    boardSub: $("board-sub"),
+    boardForm: $("board-form"),
+    boardTitle: $("board-title"),
+    boardStage: $("board-stage"),
+    boardPriority: $("board-priority"),
+    boardArea: $("board-area"),
+    boardColumns: $("board-columns"),
+    boardParked: $("board-parked-list"),
   };
 
   // ---------- State ----------
@@ -67,6 +75,8 @@
     unwatchRooms: null,
     openToken: 0,   // which openRoom call is the current one
     desk: false,    // the Desk is showing instead of a room
+    projects: [],
+    unwatchProjects: null,
   };
 
   // ---------- Helpers ----------
@@ -479,6 +489,106 @@
     }
   };
 
+  // ---------- The board ----------
+  // Yours only: the server rules give each person their own rows. Stages
+  // move left and right, priority cycles, nothing is deleted, only parked.
+  const STAGES = ["idea", "working", "built", "live", "done"];
+  const STAGE_LABEL = { idea: "Ideas", working: "Working on", built: "Built", live: "Live", done: "Done", parked: "Parked" };
+  const PRIORITY_LABEL = { 1: "now", 2: "next", 3: "later" };
+  const byPriority = (a, b) => ((a.priority || 9) - (b.priority || 9)) || a.title.localeCompare(b.title);
+
+  const patchProject = async (id, patch) => {
+    clearError(el.chatError);
+    try { upsertProject(await cxi.projects.update(id, patch)); }
+    catch (err) { showError(el.chatError, err); }
+  };
+  const smallBtn = (label, title, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tiny"; b.textContent = label; b.title = title; b.setAttribute("aria-label", title);
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  const renderCard = (p) => {
+    const card = document.createElement("div");
+    card.className = "pcard" + (p.priority === 1 ? " now" : "");
+    card.dataset.id = p.id;
+    const head = document.createElement("div");
+    head.className = "pcard-title";
+    if (p.link) {
+      const a = document.createElement("a"); a.href = p.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = p.title; head.appendChild(a);
+    } else head.textContent = p.title;
+    const meta = span("soft", [p.area, p.priority ? PRIORITY_LABEL[p.priority] : ""].filter(Boolean).join(" · "));
+    const acts = document.createElement("div");
+    acts.className = "pcard-acts";
+    const i = STAGES.indexOf(p.stage);
+    if (p.stage === "parked") {
+      acts.appendChild(smallBtn("unpark", "Back to ideas", () => patchProject(p.id, { stage: "idea" })));
+    } else {
+      if (i > 0) acts.appendChild(smallBtn("◀", `Back to ${STAGE_LABEL[STAGES[i - 1]]}`, () => patchProject(p.id, { stage: STAGES[i - 1] })));
+      if (i < STAGES.length - 1) acts.appendChild(smallBtn("▶", `On to ${STAGE_LABEL[STAGES[i + 1]]}`, () => patchProject(p.id, { stage: STAGES[i + 1] })));
+      const next = p.priority === 1 ? 2 : p.priority === 2 ? 3 : p.priority === 3 ? null : 1;
+      acts.appendChild(smallBtn(p.priority ? PRIORITY_LABEL[p.priority] : "priority", "Cycle priority: now, next, later, none", () => patchProject(p.id, { priority: next })));
+      acts.appendChild(smallBtn("park", "Park it (never deleted)", () => patchProject(p.id, { stage: "parked" })));
+    }
+    card.append(head, meta, acts);
+    if (p.notes) { const n = document.createElement("p"); n.className = "soft pcard-notes"; n.textContent = p.notes; card.insertBefore(n, acts); }
+    return card;
+  };
+  const renderBoard = () => {
+    const live = state.projects.filter((p) => p.stage !== "parked");
+    const parked = state.projects.filter((p) => p.stage === "parked");
+    el.boardSub.textContent = live.length ? `${live.length} on the board · ${live.filter((p) => p.priority === 1).length} marked now` : "Nothing on the board yet. Add a thing above, or load a CSV with workers/board_load.py.";
+    el.boardColumns.innerHTML = "";
+    for (const stage of STAGES) {
+      const col = document.createElement("section");
+      col.className = "board-col";
+      col.dataset.stage = stage;
+      const items = live.filter((p) => p.stage === stage).sort(byPriority);
+      const h = document.createElement("h4");
+      h.textContent = `${STAGE_LABEL[stage]} · ${items.length}`;
+      col.appendChild(h);
+      for (const p of items) col.appendChild(renderCard(p));
+      el.boardColumns.appendChild(col);
+    }
+    el.boardParked.innerHTML = "";
+    for (const p of parked.sort(byPriority)) li(el.boardParked, renderCard(p));
+  };
+  const upsertProject = (p) => {
+    const i = state.projects.findIndex((x) => x.id === p.id);
+    if (i >= 0) state.projects[i] = p; else state.projects.push(p);
+    renderBoard();
+  };
+  const loadBoard = async () => {
+    if (state.unwatchProjects) { state.unwatchProjects(); state.unwatchProjects = null; }
+    try {
+      // Feed first, then the list, merged by id: nothing added in between is missed.
+      state.unwatchProjects = await cxi.projects.watch(({ action, project }) => {
+        if (action === "delete") { state.projects = state.projects.filter((x) => x.id !== project.id); renderBoard(); }
+        else upsertProject(project);
+      });
+      const listed = await cxi.projects.list();
+      const seen = new Set(listed.map((p) => p.id));
+      state.projects = listed.concat(state.projects.filter((p) => !seen.has(p.id)));
+      renderBoard();
+    } catch (err) {
+      showError(el.chatError, err);
+    }
+  };
+  el.boardForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearError(el.chatError);
+    const title = el.boardTitle.value.trim();
+    if (!title) return;
+    try {
+      const p = await cxi.projects.create({ title, stage: el.boardStage.value, priority: Number(el.boardPriority.value) || null, area: el.boardArea.value.trim(), source: "desk" });
+      el.boardTitle.value = ""; el.boardArea.value = "";
+      upsertProject(p);
+      el.boardTitle.focus();
+    } catch (err) {
+      showError(el.chatError, err);
+    }
+  });
+
   const openDesk = async () => {
     await leaveRoom();
     state.desk = true;
@@ -489,6 +599,7 @@
     el.roomsPanel.classList.remove("open");
     renderRooms();
     el.deskResults.innerHTML = "";
+    await loadBoard();
     try {
       renderDesk(await cxi.desk.load());
     } catch (err) {
@@ -500,6 +611,8 @@
   const closeDesk = () => {
     if (!state.desk) return;
     state.desk = false;
+    if (state.unwatchProjects) { state.unwatchProjects(); state.unwatchProjects = null; }
+    state.projects = [];
     el.desk.hidden = true;
     el.messageList.hidden = false;
     el.deskToggle.setAttribute("aria-pressed", "false");

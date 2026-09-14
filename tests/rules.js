@@ -71,6 +71,23 @@ const { BASE, PocketBase, sleep, person, personWithEmail, superuser, check, bloc
   const summary = await anon.send("/api/cxi/register/summary", { method: "GET" });
   check("public summary answers", typeof summary.organisations_written_to === "number");
 
+  console.log("the board");
+  const pa = await a.pb.collection("projects").create({ owner: a.id, title: `Thing ${t}`, stage: "idea", priority: 1 });
+  await blocked("B creates a project as A", () => b.pb.collection("projects").create({ owner: a.id, title: `Forged ${t}`, stage: "idea" }));
+  await blocked("anon creates a project", () => anon.collection("projects").create({ owner: a.id, title: `Anon ${t}`, stage: "idea" }));
+  check("B does not list A's projects", !(await b.pb.collection("projects").getFullList()).some((r) => r.id === pa.id));
+  await blocked("B views A's project by id", () => b.pb.collection("projects").getOne(pa.id));
+  await blocked("B moves A's project", () => b.pb.collection("projects").update(pa.id, { stage: "done" }));
+  await blocked("A hands the project to B", () => a.pb.collection("projects").update(pa.id, { owner: b.id }));
+  await blocked("A deletes a project (park instead)", () => a.pb.collection("projects").delete(pa.id));
+  await blocked("unknown stage", () => a.pb.collection("projects").create({ owner: a.id, title: `Bad ${t}`, stage: "soon" }));
+  await blocked("priority 4", () => a.pb.collection("projects").create({ owner: a.id, title: `Bad2 ${t}`, stage: "idea", priority: 4 }));
+  await blocked("same title twice for one person", () => a.pb.collection("projects").create({ owner: a.id, title: `Thing ${t}`, stage: "done" }));
+  await b.pb.collection("projects").create({ owner: b.id, title: `Thing ${t}`, stage: "idea" });
+  check("same title is fine for another person", true);
+  const moved = await a.pb.collection("projects").update(pa.id, { stage: "parked", priority: null });
+  check("A parks own project and clears priority", moved.stage === "parked" && !moved.priority);
+
   console.log("the desk");
   await blocked("anon opens the desk", () => anon.send("/api/cxi/desk", { method: "GET" }));
   try { await a.pb.send("/api/cxi/desk", { method: "GET" }); check("stranger opens the desk", false, "(was allowed)"); }

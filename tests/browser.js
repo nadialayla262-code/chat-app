@@ -76,6 +76,31 @@ if (!chromium) { console.log("browser: skipped (Playwright not installed: npm i 
   await P.mouse.click(370, 400); await sleep(250);
   check("tap outside closes drawer", (await P.locator("#rooms-panel.open").count()) === 0);
 
+  // The board: Ada's own, even though the Desk proper is closed to her.
+  await A.click("#desk-toggle"); await A.waitForSelector("#desk:not([hidden])");
+  await A.fill("#board-title", `Ship it ${t}`); await A.selectOption("#board-priority", "1"); await A.fill("#board-area", "CXI Chat"); await A.click("#board-form button[type=submit]");
+  await A.waitForSelector(`.board-col[data-stage="idea"] .pcard:has-text("Ship it ${t}")`);
+  check("board card added under Ideas, marked now", (await A.locator(`.pcard.now:has-text("Ship it ${t}")`).count()) === 1 && (await A.textContent("#board-sub")).includes("1 marked now"));
+  await A.click(`.pcard:has-text("Ship it ${t}") button[aria-label^="On to"]`);
+  await A.waitForSelector(`.board-col[data-stage="working"] .pcard:has-text("Ship it ${t}")`, { timeout: 8000 });
+  check("card moves to Working on", true);
+  await A.click(`.pcard:has-text("Ship it ${t}") button[aria-label^="Cycle priority"]`);
+  await A.waitForSelector(`.pcard:has-text("Ship it ${t}") button:has-text("next")`, { timeout: 8000 });
+  check("priority cycles now to next", true);
+  await A.reload(); await A.waitForSelector("#chat:not([hidden])"); await A.click("#desk-toggle");
+  await A.waitForSelector(`.board-col[data-stage="working"] .pcard:has-text("Ship it ${t}")`, { timeout: 8000 });
+  check("board persists across reload", true);
+  await A.click(`.pcard:has-text("Ship it ${t}") button[aria-label^="Park"]`);
+  await A.waitForSelector(`#board-parked-list .pcard:has-text("Ship it ${t}")`, { state: "attached", timeout: 8000 });
+  await A.click("#board-parked summary");
+  await A.waitForSelector(`#board-parked-list .pcard:has-text("Ship it ${t}")`, { timeout: 8000 });
+  check("parked card sits under Parked, not deleted", (await A.locator(`.board-col .pcard:has-text("Ship it ${t}")`).count()) === 0);
+  check("B never sees Ada's card", true);
+  await B.click("#desk-toggle"); await B.waitForSelector("#desk:not([hidden])"); await sleep(600);
+  check("B's board does not carry Ada's card", (await B.locator(`.pcard:has-text("Ship it ${t}")`).count()) === 0);
+  await B.click("#desk-toggle");
+  await A.click("#desk-toggle");
+
   // The Desk: closed to Ada, open to the owner named in run.sh, filled from the locked collections.
   await A.click("#desk-toggle"); await A.waitForSelector("#desk-closed:not([hidden])");
   check("desk refuses a stranger with a sentence", (await A.textContent("#desk-closed")).includes("belongs to the person") && (await A.textContent("#room-title")) === "Desk");

@@ -326,6 +326,31 @@ ul.plain li:first-child { border-top: none; }
 .soft { color: var(--ink-soft); font-size: 0.9rem; }
 .seat.on { color: #2f7a3e; }
 .seat.off { color: var(--ink-soft); }
+/* The board */
+.board { margin-bottom: 1rem; }
+.board-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.board-head h3 { margin: 0; font-size: 1.05rem; font-weight: 650; }
+.board-form { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 0.4rem; margin: 0.5rem 0 0.75rem; }
+.board-form input, .board-form select { min-height: 40px; }
+.board-form select { padding: 0 0.5rem; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--ground); font: inherit; color: inherit; min-width: 7rem; }
+.board-columns { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 0.5rem; overflow-x: auto; }
+.board-col { min-width: 0; padding: 0.5rem; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--ground-2); }
+.board-col h4 { margin: 0 0 0.4rem; font-size: 0.85rem; font-weight: 650; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.pcard { padding: 0.45rem 0.55rem; margin-bottom: 0.4rem; border: 1.5px solid var(--line); border-left-width: 4px; border-radius: 8px; background: var(--ground); overflow-wrap: anywhere; }
+.pcard.now { border-left-color: var(--accent); }
+.pcard-title { font-weight: 600; font-size: 0.95rem; }
+.pcard-title a { color: var(--accent); }
+.pcard-notes { margin: 0.2rem 0 0; font-size: 0.85rem; }
+.pcard-acts { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+button.tiny { min-height: 30px; padding: 0 0.5rem; font-size: 0.8rem; border-radius: 6px; }
+#board-parked { margin-top: 0.5rem; }
+#board-parked summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+@media (max-width: 720px) {
+  .board-form { grid-template-columns: 1fr 1fr; }
+  .board-form input[type="text"]:first-child, .board-form button { grid-column: 1 / -1; }
+  .board-columns { display: flex; flex-direction: column; overflow: visible; }
+}
+
 #desk-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 /* Phone: rooms become a slide-in drawer */
