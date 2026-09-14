@@ -8,6 +8,7 @@
  *   user     { id, name, email? }
  *   room     { id, name, topic, private, created_by, members: [{id, name}], created }
  *   message  { id, room, author, author_name, body, created }
+ *   desk     see cxi.desk below; served by pb_hooks/desk.pb.js
  */
 (function (global) {
   "use strict";
@@ -145,6 +146,14 @@
           fn({ action: e.action, message: asMessage(e.record) });
         }, { filter: pb.filter("room = {:room}", { room: roomId }), expand: "author" });
       },
+    },
+
+    /** The Desk: one screen for the person who runs the spine. Server decides who that is (CXI_DESK_OWNERS). */
+    desk: {
+      /** { person, waiting: [thread], register: {counts}, documents: [doc], seats: [{name, present, last_spoke, room}], counts } */
+      async load() { return pb.send("/api/cxi/desk", { method: "GET" }); },
+      /** Word search over the corpus text. { q, results: [{ id, title, path, bates_start, bates_end, hits, snippets: [{ordinal, text}] }] } */
+      async search(q) { return pb.send("/api/cxi/desk/search", { method: "GET", query: { q } }); },
     },
   };
 

@@ -25,6 +25,20 @@ async function person(name) {
   return { pb, id: pb.authStore.record.id, email, name };
 }
 
+/** A signed-in client for a fixed email (created if needed). The Desk owners in run.sh are fixed emails. */
+async function personWithEmail(name, email) {
+  const pb = new PocketBase(BASE);
+  try { await pb.collection("users").create({ name, email, password: PW, passwordConfirm: PW }); } catch (_) {}
+  await pb.collection("users").authWithPassword(email, PW);
+  return { pb, id: pb.authStore.record.id, email, name };
+}
+/** The test superuser, for seeding locked collections. */
+async function superuser() {
+  const pb = new PocketBase(BASE);
+  await pb.collection("_superusers").authWithPassword("test@cxi.local", "test-superuser-pass");
+  return pb;
+}
+
 let failures = 0;
 function check(label, ok, detail = "") {
   console.log(`${ok ? "  ok  " : "  FAIL"} ${label}${detail ? "  " + detail : ""}`);
@@ -39,4 +53,4 @@ function done(name) {
   process.exit(failures ? 1 : 0);
 }
 
-module.exports = { BASE, PocketBase, sleep, PW, playwright, person, check, blocked, done };
+module.exports = { BASE, PocketBase, sleep, PW, playwright, person, personWithEmail, superuser, check, blocked, done };

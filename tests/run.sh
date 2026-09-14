@@ -24,6 +24,8 @@ trap stop EXIT
 
 ./bin/pocketbase migrate up --dir="$TMP/pb_data" --migrationsDir=./pb_migrations >/dev/null 2>&1
 ./bin/pocketbase superuser upsert test@cxi.local test-superuser-pass --dir="$TMP/pb_data" >/dev/null 2>&1
+# Two Desk owners, one with odd casing: the gate must read the list and ignore case.
+CXI_DESK_OWNERS="desk@test.local, Second.Owner@Test.local" \
 ./bin/pocketbase serve --http="127.0.0.1:$PORT" --dir="$TMP/pb_data" --migrationsDir=./pb_migrations --hooksDir=./pb_hooks --publicDir=./public >"$TMP/pb.log" 2>&1 &
 PIDS+=($!)
 for i in $(seq 1 30); do curl -sf "$CXI_TEST_URL/api/health" >/dev/null && break; sleep 0.3; done

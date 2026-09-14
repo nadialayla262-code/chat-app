@@ -1,5 +1,5 @@
-// The page, in two real browsers: sign-up, live rooms and messages, drafts, private rooms, invite, leave, phone drawer.
-const { BASE, PW, playwright, sleep, check, done } = require("./lib");
+// The page, in two real browsers: sign-up, live rooms and messages, drafts, private rooms, invite, leave, phone drawer, the Desk.
+const { BASE, PW, playwright, sleep, check, done, superuser } = require("./lib");
 const chromium = playwright()?.chromium;
 if (!chromium) { console.log("browser: skipped (Playwright not installed: npm i -g playwright && npx playwright install chromium)"); process.exit(0); }
 (async () => {
@@ -75,6 +75,37 @@ if (!chromium) { console.log("browser: skipped (Playwright not installed: npm i 
   check("phone drawer opens", (await P.locator("#rooms-panel.open").count()) === 1);
   await P.mouse.click(370, 400); await sleep(250);
   check("tap outside closes drawer", (await P.locator("#rooms-panel.open").count()) === 0);
+
+  // The Desk: closed to Ada, open to the owner named in run.sh, filled from the locked collections.
+  await A.click("#desk-toggle"); await A.waitForSelector("#desk-closed:not([hidden])");
+  check("desk refuses a stranger with a sentence", (await A.textContent("#desk-closed")).includes("belongs to the person") && (await A.textContent("#room-title")) === "Desk");
+  await A.click(`#room-list button:has-text("Room ${t}")`); await A.waitForSelector("#composer:not([hidden])");
+  check("opening a room leaves the desk", (await A.locator("#desk").isHidden()) && (await A.getAttribute("#desk-toggle", "aria-pressed")) === "false");
+  const su = await superuser();
+  const doc = await su.collection("documents").create({ path: `browser/${t}.txt`, sha256: String(t).padStart(64, "b"), title: `Nursing note ${t}`, chars: 60, chunks: 1, bates_start: "CXI-000456" });
+  await su.collection("chunks").create({ document: doc.id, ordinal: 0, text: `Patient refused medication. The signature block appears to have been added later, in different ink. ${t}`, model: "desk-test", dim: 4, embedding: [0, 0, 0, 0] });
+  await su.collection("threads").create({ key: `k${t}`, organisation: `inspectorate-${t}.example`, source: "test", subject: "Complete file, please", messages_sent: 3, human_replies: 0, status: "OPEN", last_sent: "2026-03-01 10:00:00.000Z" });
+  const O = await mk();
+  await O.goto(BASE); await O.click("#auth-toggle");
+  await O.fill("#auth-name", "Owner"); await O.fill("#auth-email", "desk@test.local"); await O.fill("#auth-password", PW); await O.click("#auth-submit");
+  await O.waitForSelector("#chat:not([hidden]), #auth-error:not([hidden])");
+  if (await O.locator("#auth-error:not([hidden])").count()) {  // already created by another suite on this spine: sign in instead
+    await O.click("#auth-toggle"); await O.fill("#auth-email", "desk@test.local"); await O.fill("#auth-password", PW); await O.click("#auth-submit");
+    await O.waitForSelector("#chat:not([hidden])");
+  }
+  await O.click("#desk-toggle"); await O.waitForSelector("#desk-body:not([hidden])");
+  check("owner sees the desk", (await O.getAttribute("#desk-toggle", "aria-pressed")) === "true" && (await O.locator("#desk-closed").isHidden()));
+  check("desk shows who is waiting", (await O.textContent("#desk-waiting")).includes(`inspectorate-${t}.example`) && (await O.textContent("#desk-waiting")).includes("written 3×"));
+  check("desk shows the latest document with its number", (await O.textContent("#desk-documents")).includes(`Nursing note ${t}`) && (await O.textContent("#desk-documents")).includes("CXI-000456"));
+  check("desk shows both seats", (await O.textContent("#desk-seats")).includes("Homei") && (await O.textContent("#desk-seats")).includes("Handi"));
+  await O.fill("#desk-q", "different ink"); await O.press("#desk-q", "Enter");
+  await O.waitForSelector(`.hit:has-text("Nursing note ${t}")`, { timeout: 8000 });
+  check("desk search quotes the passage", (await O.textContent(".desk-results")).includes("different ink") && (await O.textContent(".desk-results")).includes("CXI-000456"));
+  await O.fill("#desk-q", `zzz-not-there-${t}`); await O.press("#desk-q", "Enter");
+  await O.waitForSelector('.desk-results:has-text("is not in the corpus text")', { timeout: 8000 });
+  check("desk search says when nothing matches", true);
+  await O.click("#desk-toggle");
+  check("desk toggles back to the rooms", (await O.locator("#desk").isHidden()) && (await O.textContent("#room-title")) === "Choose a room");
 
   const W = await mk(); await W.goto(BASE);
   await W.fill("#auth-email", `ada${t}@test.local`); await W.fill("#auth-password", "wrong-password-1"); await W.click("#auth-submit");

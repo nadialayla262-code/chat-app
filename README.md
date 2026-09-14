@@ -36,7 +36,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | Path | What it is |
 | --- | --- |
 | `pb_migrations/` | The schema, as code. Runs automatically on start. |
-| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code, export my data. |
+| `pb_hooks/` | Server-side routes and guards, as code: private-room invitations, the public register views, the sign-up code, export my data, the Desk. |
 | `public/` | The whole frontend: one HTML page, one stylesheet, two scripts. |
 | `public/cxi.js` | The thin layer. The only frontend file that knows the back end is PocketBase. |
 | `public/app.js` | The page. Talks to `cxi`, never to the back end. |
@@ -139,6 +139,7 @@ Settings are environment variables, never edits:
 | `CXI_CHAT_MODEL` | `qwen3:4b` | Which Ollama model answers |
 | `CXI_OLLAMA_HOST` | `http://127.0.0.1:11434` | Where Ollama is |
 | `CXI_PB_URL` | `http://127.0.0.1:8090` | Where the spine is |
+| `CXI_DESK_OWNERS` | unset (Desk closed) | Emails allowed to open the Desk, comma-separated |
 | `CXI_HOMEI_HISTORY` | `30` | How many messages it reads back |
 
 Swapping the model for DeepSeek later means changing one class in
@@ -230,6 +231,40 @@ never an address, never a subject:
 Publication discipline is a field. Nothing appears on the board until you
 tick `published` on that organisation in the admin panel, and you can give
 it a `display_name` there too. Unverified stays off the site.
+
+
+## The Desk
+
+One screen behind the chat, for the person who runs the spine. Press
+**Desk** in the top bar:
+
+- **Waiting on a reply**: every open thread in the mail register, most
+  recently written first, with how many times you wrote and how many human
+  replies came back. The counts across the whole register sit above it.
+- **Latest documents in**: the newest files in the corpus, with their Bates
+  numbers where they have one.
+- **Seats**: whether Homei and Handi are seated and where each last spoke.
+- **Find a phrase**: a word search over the corpus text. It quotes the
+  passage and names the document. This is not the embedding search
+  (`workers/search.py`, which needs the model); it needs nothing and
+  answers "where does this phrase occur".
+
+The register and the corpus are locked collections, so the Desk is gated
+on the server. Start the spine with
+
+```sh
+export CXI_DESK_OWNERS="you@example.com"        # comma-separated for more than one
+./scripts/start.sh
+```
+
+and only a signed-in person with that email gets an answer. Unset, the
+Desk is closed for everyone and says so. The page hides nothing and
+enforces nothing; `pb_hooks/desk.pb.js` does both.
+
+| Route | Returns |
+| --- | --- |
+| `GET /api/cxi/desk` | open threads, register counts, latest documents, the seats, counts |
+| `GET /api/cxi/desk/search?q=` | documents whose text contains the phrase, with up to three quoted passages each |
 
 ## The corpus in the spine
 

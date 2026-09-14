@@ -43,6 +43,18 @@
     body: $("body"),
     send: $("send"),
     chatError: $("chat-error"),
+    deskToggle: $("desk-toggle"),
+    desk: $("desk"),
+    deskClosed: $("desk-closed"),
+    deskBody: $("desk-body"),
+    deskSearchForm: $("desk-search-form"),
+    deskQ: $("desk-q"),
+    deskResults: $("desk-results"),
+    deskRegister: $("desk-register"),
+    deskWaiting: $("desk-waiting"),
+    deskDocumentsSub: $("desk-documents-sub"),
+    deskDocuments: $("desk-documents"),
+    deskSeats: $("desk-seats"),
   };
 
   // ---------- State ----------
@@ -54,6 +66,7 @@
     unwatchMessages: null,
     unwatchRooms: null,
     openToken: 0,   // which openRoom call is the current one
+    desk: false,    // the Desk is showing instead of a room
   };
 
   // ---------- Helpers ----------
@@ -67,6 +80,7 @@
     const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     return sameDay ? time : `${d.toLocaleDateString()} ${time}`;
   };
+  const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
   const authorName = (m) => m.author_name || (m.author === me().id ? (me().name || "you") : "someone");
   const byName = (a, b) => a.name.localeCompare(b.name);
   const draftKey = (roomId) => `cxi-chat:draft:${roomId}`;
@@ -133,6 +147,7 @@
 
   /** Tear down everything about the current person: feeds, room, list. Used by sign-out and by a session ending on its own. */
   const reset = async () => {
+    closeDesk();
     await leaveRoom();
     if (state.unwatchRooms) { state.unwatchRooms(); state.unwatchRooms = null; }
     state.rooms = [];
@@ -334,7 +349,8 @@
   };
 
   const openRoom = async (roomId) => {
-    if (state.roomId === roomId) { el.roomsPanel.classList.remove("open"); return; }
+    if (state.roomId === roomId && !state.desk) { el.roomsPanel.classList.remove("open"); return; }
+    closeDesk();
     await leaveRoom();
     clearError(el.chatError);
     const token = ++state.openToken;
@@ -400,6 +416,106 @@
       el.send.disabled = false;
       el.body.focus();
     }
+  });
+
+  // ---------- Desk ----------
+  // One screen behind the chat. The page only draws what the server sends;
+  // pb_hooks/desk.pb.js decides who may see it (CXI_DESK_OWNERS).
+  const li = (parent, ...parts) => {
+    const item = document.createElement("li");
+    for (const p of parts) if (p) item.appendChild(p);
+    parent.appendChild(item);
+    return item;
+  };
+  const span = (cls, text) => { const s = document.createElement("span"); s.className = cls; s.textContent = text; return s; };
+
+  const renderDesk = (d) => {
+    el.deskClosed.hidden = true;
+    el.deskBody.hidden = false;
+    const r = d.register || {};
+    el.deskRegister.textContent = `${r.open_threads || 0} open · ${r.organisations_written_to || 0} organisations written to · ${r.never_answered_by_a_person || 0} never answered by a person · ${r.dead_addresses || 0} dead addresses`;
+    el.deskWaiting.innerHTML = "";
+    if (!d.waiting || !d.waiting.length) li(el.deskWaiting, span("soft", "Nobody. Load the mail register to see who owes you a reply."));
+    for (const t of d.waiting || []) {
+      li(el.deskWaiting, span("strong", t.organisation), span("soft", t.subject || "(no subject)"),
+        span("soft", `written ${t.messages_sent}× · last ${fmtDate(t.last_sent)} · ${t.human_replies} human ${t.human_replies === 1 ? "reply" : "replies"}`));
+    }
+    el.deskDocumentsSub.textContent = `${d.counts && d.counts.documents || 0} in the corpus`;
+    el.deskDocuments.innerHTML = "";
+    if (!d.documents || !d.documents.length) li(el.deskDocuments, span("soft", "None yet. Index a folder with workers/index.py."));
+    for (const doc of d.documents || []) {
+      const bates = doc.bates_start ? (doc.bates_end && doc.bates_end !== doc.bates_start ? `${doc.bates_start} – ${doc.bates_end}` : doc.bates_start) : "";
+      li(el.deskDocuments, span("strong", doc.title || doc.path), span("soft", doc.path), span("soft", [bates, `${doc.chars || 0} characters`, fmtDate(doc.created)].filter(Boolean).join(" · ")));
+    }
+    el.deskSeats.innerHTML = "";
+    for (const seat of d.seats || []) {
+      const status = !seat.present ? "not started yet" : seat.last_spoke ? `last spoke ${fmtDate(seat.last_spoke)}${seat.room ? " in " + seat.room : ""}` : "seated, has not spoken yet";
+      const head = span("strong", "");
+      head.append(span(seat.present ? "seat on" : "seat off", seat.present ? "● " : "○ "), document.createTextNode(seat.name));
+      li(el.deskSeats, head, span("soft", status));
+    }
+  };
+
+  const renderResults = (res) => {
+    el.deskResults.innerHTML = "";
+    if (!res.q) return;
+    const head = document.createElement("p");
+    head.className = "soft";
+    head.textContent = res.results.length ? `“${res.q}” in ${res.documents_matched} ${res.documents_matched === 1 ? "document" : "documents"}` : `“${res.q}” is not in the corpus text.`;
+    el.deskResults.appendChild(head);
+    for (const doc of res.results) {
+      const card = document.createElement("div");
+      card.className = "hit";
+      const title = document.createElement("div");
+      title.className = "strong";
+      title.textContent = (doc.bates_start ? doc.bates_start + "  " : "") + (doc.title || doc.path);
+      card.appendChild(title);
+      for (const sn of doc.snippets) {
+        const q = document.createElement("blockquote");
+        q.textContent = sn.text;
+        card.appendChild(q);
+      }
+      el.deskResults.appendChild(card);
+    }
+  };
+
+  const openDesk = async () => {
+    await leaveRoom();
+    state.desk = true;
+    el.desk.hidden = false;
+    el.messageList.hidden = true;
+    el.roomTitle.textContent = "Desk";
+    el.deskToggle.setAttribute("aria-pressed", "true");
+    el.roomsPanel.classList.remove("open");
+    renderRooms();
+    el.deskResults.innerHTML = "";
+    try {
+      renderDesk(await cxi.desk.load());
+    } catch (err) {
+      el.deskBody.hidden = true;
+      el.deskClosed.textContent = cxi.explain(err);
+      el.deskClosed.hidden = false;
+    }
+  };
+  const closeDesk = () => {
+    if (!state.desk) return;
+    state.desk = false;
+    el.desk.hidden = true;
+    el.messageList.hidden = false;
+    el.deskToggle.setAttribute("aria-pressed", "false");
+    if (!state.roomId) el.roomTitle.textContent = "Choose a room";
+  };
+
+  el.deskToggle.addEventListener("click", async () => {
+    if (state.desk) { closeDesk(); renderMessages(); return; }
+    await openDesk();
+  });
+  el.deskSearchForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = el.deskQ.value.trim();
+    if (!q) { el.deskResults.innerHTML = ""; return; }
+    try { renderResults(await cxi.desk.search(q)); }
+    catch (err) { showError(el.chatError, err); }
   });
 
   // ---------- Boot ----------

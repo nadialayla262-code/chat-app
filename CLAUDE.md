@@ -66,7 +66,7 @@ run `tests/rules.js`. When you add a worker, add a test for it.
 | Path | What |
 | --- | --- |
 | `pb_migrations/` | Schema and rules, in order, each with a rollback |
-| `pb_hooks/` | Server routes and guards: invite / uninvite / leave, register summary and board, sign-up code, export |
+| `pb_hooks/` | Server routes and guards: invite / uninvite / leave, register summary and board, sign-up code, export, the Desk |
 | `public/` | The page. `cxi.js` is the thin layer; `app.js` never touches the back end |
 | `workers/` | Homei, Handi, Handi on mail, register loader, corpus index and search, backup, Bates. `cxi_spine.py` is their thin layer |
 | `tests/` | `run.sh` and one script per suite |
