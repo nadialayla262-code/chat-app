@@ -48,6 +48,7 @@ schedule as the rest of the spine (working copy, T7 weekly, secondary cloud).
 | `workers/*.system.md` | Each worker's rules. Plain text, edit freely. |
 | `workers/log/` | Append-only record of everything the workers posted. Gitignored. |
 | `workers/register_load.py` | Loads the mail register into the spine, locked to you. |
+| `workers/exports_unpack.py` | Turns a Claude, ChatGPT, Gemini, Grok or DeepSeek export into one text file per conversation, with an index, for the corpus. |
 | `workers/board_load.py` | Loads a board (done / working on / ideas, with stage and priority) from a CSV into one person's Desk. |
 | `workers/bates.py` | Bates numbering: every page of every exhibit gets a permanent number. |
 | `workers/index.py`, `workers/search.py` | The corpus in the spine: chunk, embed, search. |
@@ -288,6 +289,27 @@ enforces nothing; `pb_hooks/desk.pb.js` does both.
 | --- | --- |
 | `GET /api/cxi/desk` | open threads, register counts, latest documents, the seats, counts |
 | `GET /api/cxi/desk/search?q=` | documents whose text contains the phrase, with up to three quoted passages each |
+
+## Unpacking chat exports
+
+Claude, ChatGPT, Gemini (Google Takeout), Grok and DeepSeek all hand you a
+zip. `workers/exports_unpack.py` turns each into one dated text file per
+conversation, plus `index.csv` and `titles.csv`, so the corpus indexer can
+read it and the Desk can search it. Nothing is summarised or dropped:
+every turn is written as exported, empty turns as `(empty)`, unknown file
+shapes reported by name rather than guessed.
+
+```sh
+python3 workers/exports_unpack.py --in ~/Downloads/data-2026-09-11.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/takeout-20260911.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/grok.zip --out ~/exports
+python3 workers/exports_unpack.py --in ~/Downloads/deepseek.zip --out ~/exports
+python3 workers/index.py --in ~/exports
+```
+
+Re-running with the same input rewrites the same files and keeps the
+index whole. `titles.csv` lists every conversation oldest first, which is
+the quickest map of what you have been thinking about and when.
 
 ## The corpus in the spine
 
