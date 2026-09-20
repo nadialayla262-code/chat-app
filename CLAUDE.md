@@ -72,6 +72,7 @@ run `tests/rules.js`. When you add a worker, add a test for it.
 | `tests/` | `run.sh` and one script per suite |
 | `docs/LOVABLE.md` | Pointing a Lovable front end at this spine |
 | `scripts/start.sh`, `stop.sh`, `dev.sh` | Background start/stop by pid file; foreground spine |
+| `deploy/` | One-run setup of a box you own: units, HTTPS, weekly backup. `tests/deploy.sh` checks it without root |
 
 Gitignored and never committed: `pb_data/` (the database), `bin/`,
 `register/`, `workers/log/`, `workers/.vectors/`, `workers/.*-password`, `.run/`, `tests/.tmp/`.

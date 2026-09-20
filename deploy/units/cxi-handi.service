@@ -1,0 +1,20 @@
+[Unit]
+Description=CXI seat: Handi
+After=cxi-spine.service
+Requires=cxi-spine.service
+
+[Service]
+User=cxi
+Group=cxi
+WorkingDirectory=/opt/cxi/app/workers
+EnvironmentFile=/etc/cxi/env
+ExecStart=/usr/bin/python3 /opt/cxi/app/workers/handi.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/cxi
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

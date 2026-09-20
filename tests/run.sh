@@ -2,7 +2,7 @@
 # Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
 #
 #   ./tests/run.sh            # all
-#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates board exports signup startstop
+#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates board exports signup startstop deploy
 #
 # Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
 # Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
@@ -48,7 +48,8 @@ run() { echo; echo "== $1 =="; shift; "$@" || status=1; }
 case "$want" in
   all)      run rules node tests/rules.js; run register "$PY" tests/register.py; run corpus "$PY" tests/corpus.py
             run workers node tests/workers.js; run backup "$PY" tests/backup.py; run bates "$PY" tests/bates.py
-            run board "$PY" tests/board.py; run exports "$PY" tests/exports.py; run browser node tests/browser.js ;;
+            run board "$PY" tests/board.py; run exports "$PY" tests/exports.py; run browser node tests/browser.js
+            run deploy bash tests/deploy.sh ;;
   rules)    run rules node tests/rules.js ;;
   workers)  run workers node tests/workers.js ;;
   register) run register "$PY" tests/register.py ;;
@@ -58,6 +59,7 @@ case "$want" in
   board)    run board "$PY" tests/board.py ;;
   exports)  run exports "$PY" tests/exports.py ;;
   browser)  run browser node tests/browser.js ;;
+  deploy)   run deploy bash tests/deploy.sh ;;
   signup)   : ;;
   startstop) : ;;
   *) echo "unknown suite: $want"; status=2 ;;

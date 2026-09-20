@@ -21,6 +21,7 @@ up. Nothing here needs Claude Code to run.
 | **Bates numbering** | Every page of every exhibit gets a permanent number. Ledger is append-only. Duplicates are named. Originals never touched. | Working, tested. Needs `pip3 install pypdf reportlab pillow` |
 | **The corpus in the spine** | `index.py` chunks and embeds your text files into locked collections; `search.py` finds the passage and names the exhibit. | Working, tested with a stand-in embedder. Not yet run on the real corpus or the real embedding model |
 | **Backup with a tested restore** | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. | Working, tested |
+| **Your own box** | `sudo ./deploy/install.sh <domain> <your email>` on a fresh Debian or Ubuntu machine outside the Netherlands brings up the spine, both seats, HTTPS and a weekly restore-tested backup. Repeat-safe, keeps settings, never touches the database. | Written and checked without root; not yet run on a real box |
 | **The Lovable recipe** | `docs/LOVABLE.md`: tunnel from the Mac, a paste-ready first message for Lovable. | Written, not yet fired: needs the tunnel up first |
 
 ## Bring it up

@@ -147,6 +147,16 @@ Settings are environment variables, never edits:
 Swapping the model for DeepSeek later means changing one class in
 `workers/cxi_spine.py`, the one marked `Model`. Nothing else moves.
 
+## Your own box
+
+When the laptop is not enough, one run puts everything on a machine you own,
+outside the Netherlands: the spine, Homei, Handi, HTTPS, and a weekly backup
+that proves its own restore. See `deploy/README.md`.
+
+```sh
+sudo ./deploy/install.sh cxi.example.org you@example.com
+```
+
 ## Handi
 
 Handi holds the thread when you can't. Say `@handi` in a room and it posts
