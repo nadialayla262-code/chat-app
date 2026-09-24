@@ -1,0 +1,13 @@
+[Unit]
+Description=CXI backup: snapshot, copy, hash-check, restore-test
+After=cxi-spine.service
+
+[Service]
+Type=oneshot
+User=cxi
+Group=cxi
+WorkingDirectory=/opt/cxi/app
+EnvironmentFile=/etc/cxi/env
+Environment=CXI_PB_BIN=/opt/cxi/app/bin/pocketbase
+Environment=CXI_PB_DATA=/opt/cxi/app/pb_data
+ExecStart=/usr/bin/python3 /opt/cxi/app/workers/backup.py /opt/cxi/backups

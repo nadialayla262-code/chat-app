@@ -1,0 +1,20 @@
+[Unit]
+Description=CXI spine (PocketBase)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cxi
+Group=cxi
+WorkingDirectory=/opt/cxi/app
+EnvironmentFile=/etc/cxi/env
+ExecStart=/opt/cxi/app/bin/pocketbase serve --http=127.0.0.1:8090 --dir=/opt/cxi/app/pb_data --migrationsDir=/opt/cxi/app/pb_migrations --hooksDir=/opt/cxi/app/pb_hooks --publicDir=/opt/cxi/app/public
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/cxi
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

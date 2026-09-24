@@ -2,7 +2,7 @@
 # Run everything against a throwaway spine on port 8099. Nothing touches ./pb_data.
 #
 #   ./tests/run.sh            # all
-#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates signup startstop
+#   ./tests/run.sh rules      # one of: rules workers browser register corpus backup bates board exports signup startstop deploy
 #
 # Needs: node, python3, the PocketBase binary (./scripts/dev.sh fetches it into ./bin).
 # Optional: Playwright for the browser suite; pypdf+reportlab+pillow for the Bates suite.
@@ -24,6 +24,8 @@ trap stop EXIT
 
 ./bin/pocketbase migrate up --dir="$TMP/pb_data" --migrationsDir=./pb_migrations >/dev/null 2>&1
 ./bin/pocketbase superuser upsert test@cxi.local test-superuser-pass --dir="$TMP/pb_data" >/dev/null 2>&1
+# Two Desk owners, one with odd casing: the gate must read the list and ignore case.
+CXI_DESK_OWNERS="desk@test.local, Second.Owner@Test.local" \
 ./bin/pocketbase serve --http="127.0.0.1:$PORT" --dir="$TMP/pb_data" --migrationsDir=./pb_migrations --hooksDir=./pb_hooks --publicDir=./public >"$TMP/pb.log" 2>&1 &
 PIDS+=($!)
 for i in $(seq 1 30); do curl -sf "$CXI_TEST_URL/api/health" >/dev/null && break; sleep 0.3; done
@@ -46,14 +48,18 @@ run() { echo; echo "== $1 =="; shift; "$@" || status=1; }
 case "$want" in
   all)      run rules node tests/rules.js; run register "$PY" tests/register.py; run corpus "$PY" tests/corpus.py
             run workers node tests/workers.js; run backup "$PY" tests/backup.py; run bates "$PY" tests/bates.py
-            run browser node tests/browser.js ;;
+            run board "$PY" tests/board.py; run exports "$PY" tests/exports.py; run browser node tests/browser.js
+            run deploy bash tests/deploy.sh ;;
   rules)    run rules node tests/rules.js ;;
   workers)  run workers node tests/workers.js ;;
   register) run register "$PY" tests/register.py ;;
   corpus)   run corpus "$PY" tests/corpus.py ;;
   backup)   run backup "$PY" tests/backup.py ;;
   bates)    run bates "$PY" tests/bates.py ;;
+  board)    run board "$PY" tests/board.py ;;
+  exports)  run exports "$PY" tests/exports.py ;;
   browser)  run browser node tests/browser.js ;;
+  deploy)   run deploy bash tests/deploy.sh ;;
   signup)   : ;;
   startstop) : ;;
   *) echo "unknown suite: $want"; status=2 ;;

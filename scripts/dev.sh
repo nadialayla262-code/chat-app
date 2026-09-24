@@ -5,6 +5,7 @@
 #   PB_PORT=9000 ./scripts/dev.sh
 #
 # Everything lives in this folder. The database is ./pb_data (gitignored).
+# CXI_DESK_OWNERS=you@example.com opens the Desk (see README) to that person.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

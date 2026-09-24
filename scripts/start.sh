@@ -8,7 +8,8 @@
 # Process ids go to .run/. Stop with ./scripts/stop.sh.
 #
 # Set CXI_SIGNUP_CODE, CXI_SUPERUSER_EMAIL and CXI_SUPERUSER_PASSWORD in this
-# shell first if you want closed sign-up and "@handi find".
+# shell first if you want closed sign-up and "@handi find". Set
+# CXI_DESK_OWNERS=you@example.com to open the Desk to yourself.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PB_PORT="${PB_PORT:-8090}"

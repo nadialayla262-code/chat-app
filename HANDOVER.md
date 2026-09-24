@@ -14,10 +14,14 @@ up. Nothing here needs Claude Code to run.
 | **Homei** | Your chatbot, in the room, on your machine, through Ollama. The room history is its memory, and "homei, remember …" carries facts across rooms. Its rules are a text file. | Logic tested against a stand-in model. Not yet run with the real `qwen3:4b` |
 | **Handi in the room** | Say `@handi` and it posts who is waiting on whom, what is unanswered, what was promised. Counted, not imagined. `@handi find …` in a private room searches the corpus. | Working, tested |
 | **Handi on your mail** | Reads a Takeout export or your mailbox over IMAP and writes the register: organisations written to, times, who ever answered with a human word, which addresses bounced. | Both paths working on a built mailbox. Not yet run on your real mail |
+| **Export unpacker** | Claude, ChatGPT, Gemini Takeout, Grok, DeepSeek exports to one text file per conversation plus an index, ready for the corpus. | Working, tested on fixture shapes; not yet run on the real September exports |
+| **The board** | Done, working on, ideas, with stage and priority, on the Desk. Yours only. Add on the page or load a CSV with `workers/board_load.py`. Never deleted, only parked. | Working, tested in the rules, board and browser suites |
+| **The Desk** | One screen behind the chat: who owes you a reply, the latest documents in with their numbers, the seats, and a phrase search over the corpus text. Gated on the server to the emails in `CXI_DESK_OWNERS`. | Working, tested in the rules and browser suites |
 | **The register in the spine** | Loads that register into your database, locked to you. Two public routes give counts only, and only for organisations you flag published. | Working, tested |
 | **Bates numbering** | Every page of every exhibit gets a permanent number. Ledger is append-only. Duplicates are named. Originals never touched. | Working, tested. Needs `pip3 install pypdf reportlab pillow` |
 | **The corpus in the spine** | `index.py` chunks and embeds your text files into locked collections; `search.py` finds the passage and names the exhibit. | Working, tested with a stand-in embedder. Not yet run on the real corpus or the real embedding model |
 | **Backup with a tested restore** | Snapshot, copy, hash-check, restore into a throwaway spine, count, log. | Working, tested |
+| **Your own box** | `sudo ./deploy/install.sh <domain> <your email>` on a fresh Debian or Ubuntu machine outside the Netherlands brings up the spine, both seats, HTTPS and a weekly restore-tested backup. Repeat-safe, keeps settings, never touches the database. | Written and checked without root; not yet run on a real box |
 | **The Lovable recipe** | `docs/LOVABLE.md`: tunnel from the Mac, a paste-ready first message for Lovable. | Written, not yet fired: needs the tunnel up first |
 
 ## Bring it up
@@ -45,7 +49,7 @@ those addresses.
 ```
 
 Starts a throwaway spine on another port, a stand-in model, both workers,
-and runs nine suites: rules, mail register, corpus, workers, backup,
+and runs eleven suites: rules, mail register, corpus, workers, backup, board, exports,
 Bates, browser, start and stop, sign-up code. Ends with `ALL GREEN` or
 says what failed. Your real database is never touched.
 
