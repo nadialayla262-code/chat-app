@@ -144,8 +144,9 @@ Settings are environment variables, never edits:
 | `CXI_DESK_OWNERS` | unset (Desk closed) | Emails allowed to open the Desk, comma-separated |
 | `CXI_HOMEI_HISTORY` | `30` | How many messages it reads back |
 
-Swapping the model for DeepSeek later means changing one class in
-`workers/cxi_spine.py`, the one marked `Model`. Nothing else moves.
+Swapping the model for DeepSeek later means `CXI_CHAT_MODEL=deepseek-r1:7b`.
+Where models live, which DeepSeek fits, and how Hugging Face fits in:
+`docs/MODELS.md`.
 
 ## Your own box
 

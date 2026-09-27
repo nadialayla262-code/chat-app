@@ -45,6 +45,9 @@ Dropbox is installed and signed in. A folder **CXI vault** exists in it with
 ## Job 3. The local model
 
 - `ollama --version`. If missing, install the macOS app from ollama.com.
+- If `/Volumes/T7` is mounted: `mkdir -p /Volumes/T7/ollama`,
+  `launchctl setenv OLLAMA_MODELS /Volumes/T7/ollama`, quit and reopen Ollama.
+  Models then live on the T7, not the Mac's disk. See `docs/MODELS.md`.
 - `ollama pull qwen3:4b` and `ollama pull qwen3-embedding:0.6b`.
 - Check: `ollama list` shows both.
 
