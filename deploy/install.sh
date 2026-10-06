@@ -5,7 +5,7 @@
 #   sudo ./deploy/install.sh cxi.example.org you@example.com --with-ollama   # also the local model
 #   ./deploy/install.sh --dry-run cxi.example.org you@example.com            # print, change nothing
 #
-# Debian 12 or Ubuntu 24.04, run as root, on a fresh machine or again later:
+# Debian 12 or Ubuntu 24.04 or later, run as root, on a fresh machine or again later:
 # every step is safe to repeat. What it does, in order:
 #   1. a system account `cxi` with no shell, and /opt/cxi as its home
 #   2. the packages: python3, curl, unzip, caddy (HTTPS in front of the spine)
@@ -44,7 +44,16 @@ if ! id cxi >/dev/null 2>&1; then run useradd --system --home-dir /opt/cxi --cre
 
 echo "== 2. packages"
 run apt-get update -qq
-run apt-get install -y -qq python3 curl unzip caddy ufw
+run apt-get install -y -qq python3 curl unzip rsync ufw
+# Caddy is in Debian's own archive; on some Ubuntu images it is not. Fall back to Caddy's repository.
+if [ "$DRY" = 1 ]; then echo "+ apt-get install caddy (from the distribution; if absent, from Caddy's own repository)"; else
+  apt-get install -y -qq caddy || {
+    apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https gnupg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+    apt-get update -qq && apt-get install -y -qq caddy
+  }
+fi
 
 echo "== 3. the app"
 run mkdir -p "$APP" "$BACKUPS"
