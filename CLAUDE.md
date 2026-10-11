@@ -33,6 +33,9 @@ both before your first change.
 7. **Nothing leaves the machine.** No telemetry, no external calls from the
    page or the workers except to the spine and the local model.
 8. **No servers in the Netherlands.** Design choice, not a preference.
+9. **Lovable is hers.** No session creates, renames, duplicates or messages
+   a Lovable project. Every message there spends her credits. Read-only
+   looks are fine; the contract it needs is `docs/LOVABLE.md`. She drives it.
 
 ## Language
 
