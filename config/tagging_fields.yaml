@@ -1,0 +1,10 @@
+fields:
+  - name: title
+    type: string
+    description: "The title of the document, if present."
+  - name: date
+    type: string
+    description: "The main date associated with the document in YYYY-MM-DD format."
+  - name: topics
+    type: list of strings
+    description: "Main topics discussed in the document."
