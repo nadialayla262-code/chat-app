@@ -1,0 +1,58 @@
+name: Corpus Processing Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *' # Nightly at 2:00 AM UTC
+
+jobs:
+  process-corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # Hard time stop to stay within free runner minutes
+    strategy:
+      matrix:
+        batch: [0, 1, 2, 3] # Split workload into 4 batches
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ocrmypdf tesseract-ocr-nld
+
+      - name: Cache Hugging Face models
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-huggingface-${{ hashFiles('**/run_corpus.py') }}
+          restore-keys: |
+            ${{ runner.os }}-huggingface-
+
+      - name: Cache NLTK data
+        uses: actions/cache@v3
+        with:
+          path: ~/nltk_data
+          key: ${{ runner.os }}-nltk-${{ hashFiles('**/run_corpus.py') }}
+          restore-keys: |
+            ${{ runner.os }}-nltk-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pymupdf transformers==4.40.0 sentencepiece torch nltk litellm pyyaml
+          # Pre-download nltk punkt
+          python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+
+      - name: Run Pipeline (Batch ${{ matrix.batch }})
+        run: |
+          mkdir -p output_dir logs
+          # Ensure an input directory exists for testing if not checked in
+          mkdir -p data/input
+          python pipeline/run_corpus.py --input_dir data/input --output_dir output_dir --log_file logs/log_${{ matrix.batch }}.csv --batch ${{ matrix.batch }} --num_batches 4
